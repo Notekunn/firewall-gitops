@@ -5,8 +5,7 @@ terraform {
       version = "~> 2.0.5"
     }
   }
-  backend "http" {
-  }
+  backend "http" {}
 }
 
 # Data sources to read YAML configuration files
@@ -59,9 +58,9 @@ module "palo_alto_firewall" {
 
   source = "../modules/palo-alto"
 
-  firewall_rules     = try(local.firewall_rules.rule_groups, {})
-  firewall_addresses = try(local.firewall_rules.address_objects, [])
-  firewall_services  = try(local.firewall_rules.service_objects, [])
+  firewall_rules     = try(local.firewall_rules.rules, {})
+  firewall_addresses = try(local.firewall_rules.addresses, [])
+  firewall_services  = try(local.firewall_rules.services, [])
   position           = local.position_config
   location           = local.location_config
 }

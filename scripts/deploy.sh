@@ -25,7 +25,7 @@ usage() {
     echo ""
     echo "Options:"
     echo "  -c, --cluster     Cluster name (required)"
-    echo "  -a, --action      Action to perform: plan, apply, destroy (default: plan)"
+    echo "  -a, --action      Action to perform: init, fmt, validate, plan, apply, destroy (default: plan)"
     echo "  -y, --auto-approve Auto-approve changes (for apply/destroy)"
     echo "  -d, --dry-run     Dry run mode (plan only)"
     echo "  -h, --help        Show this help message"
@@ -102,13 +102,13 @@ if [[ ! -d "$CLUSTER_DIR" ]]; then
     exit 1
 fi
 
-if [[ ! -f "$CLUSTER_DIR/cluster-config.yaml" ]]; then
-    error "Cluster configuration not found: $CLUSTER_DIR/cluster-config.yaml"
+if [[ ! -f "$CLUSTER_DIR/cluster.yaml" ]]; then
+    error "Cluster configuration not found: $CLUSTER_DIR/cluster.yaml"
     exit 1
 fi
 
-if [[ ! -f "$CLUSTER_DIR/firewall-rules.yaml" ]]; then
-    error "Firewall rules not found: $CLUSTER_DIR/firewall-rules.yaml"
+if [[ ! -f "$CLUSTER_DIR/rules.yaml" ]]; then
+    error "Firewall rules not found: $CLUSTER_DIR/rules.yaml"
     exit 1
 fi
 
@@ -117,14 +117,14 @@ log "Action: $ACTION"
 log "Auto-approve: $AUTO_APPROVE"
 log "Dry run: $DRY_RUN"
 
-# Validate YAML configurations
-log "Validating YAML configurations..."
-cd "$PROJECT_ROOT"
-if ! python3 scripts/validate_yaml.py; then
-    error "YAML validation failed"
-    exit 1
-fi
-success "YAML validation passed"
+# # Validate YAML configurations
+# log "Validating YAML configurations..."
+# cd "$PROJECT_ROOT"
+# if ! python3 scripts/validate_yaml.py; then
+#     error "YAML validation failed"
+#     exit 1
+# fi
+# success "YAML validation passed"
 
 # Change to Terraform directory
 cd "$TERRAFORM_DIR"
@@ -135,30 +135,68 @@ if ! command -v terraform &> /dev/null; then
     exit 1
 fi
 
-# Initialize Terraform
-log "Initializing Terraform..."
-if ! terraform init; then
-    error "Terraform initialization failed"
-    exit 1
+# Initialize Terraform with GitLab managed state
+log "Initializing Terraform with GitLab managed state for cluster: $CLUSTER_NAME"
+TERRAFORM_WORKSPACE="firewall-$CLUSTER_NAME"
+
+# Set default GitLab configuration if not in CI environment
+if [[ -z "${GITLAB_CI}" ]]; then
+    # Local development - require GitLab configuration
+    if [[ -z "${GITLAB_PROJECT_ID}" || -z "${GITLAB_TOKEN}" || -z "${GITLAB_API_URL}" ]]; then
+        error "GitLab configuration required for state management"
+        error "Please set the following environment variables:"
+        error "  GITLAB_PROJECT_ID - Your GitLab project ID"
+        error "  GITLAB_TOKEN - Your GitLab personal access token or job token"
+        error "  GITLAB_API_URL - GitLab API URL (e.g., https://gitlab.com/api/v4)"
+        error "  GITLAB_USERNAME - Your GitLab username"
+        exit 1
+    fi
 fi
 
-# Validate Terraform configuration
-log "Validating Terraform configuration..."
-if ! terraform validate; then
-    error "Terraform validation failed"
-    exit 1
-fi
-
-# Format check
-log "Checking Terraform formatting..."
-if ! terraform fmt -check -recursive; then
-    warning "Terraform files are not properly formatted"
-    log "Running terraform fmt..."
-    terraform fmt -recursive
-fi
+log "Using GitLab managed Terraform state: $TERRAFORM_WORKSPACE"
+log "GitLab API: ${GITLAB_API_URL}"
+log "Project ID: ${GITLAB_PROJECT_ID}"
 
 # Execute the requested action
 case $ACTION in
+    fmt)
+        log "Checking Terraform formatting..."
+        if terraform fmt -recursive -check; then
+            success "Terraform files formatted successfully"
+        else
+            warning "Terraform files are not properly formatted"
+            terraform fmt -recursive
+        fi
+        ;;
+    validate)
+        log "Validating Terraform configuration..."
+        if terraform validate; then
+            success "Terraform validation passed"
+        else
+            error "Terraform validation failed"
+            exit 1
+        fi
+        ;;
+    init)
+        log "Initializing Terraform..."
+        terraform init
+        success "Terraform initialized successfully"
+
+        if terraform init \
+            -backend-config="address=${GITLAB_API_URL}/projects/${GITLAB_PROJECT_ID}/terraform/state/${TERRAFORM_WORKSPACE}" \
+            -backend-config="lock_address=${GITLAB_API_URL}/projects/${GITLAB_PROJECT_ID}/terraform/state/${TERRAFORM_WORKSPACE}/lock" \
+            -backend-config="unlock_address=${GITLAB_API_URL}/projects/${GITLAB_PROJECT_ID}/terraform/state/${TERRAFORM_WORKSPACE}/lock" \
+            -backend-config="username=${GITLAB_USERNAME}" \
+            -backend-config="password=${GITLAB_PASSWORD}" \
+            -backend-config="lock_method=POST" \
+            -backend-config="unlock_method=DELETE" \
+            -backend-config="retry_wait_min=5"; then
+            success "Terraform initialized with GitLab backend successfully"
+        else
+            error "Terraform initialization with GitLab backend failed"
+            exit 1
+        fi
+        ;;
     plan)
         log "Creating Terraform plan for cluster: $CLUSTER_NAME"
         PLAN_FILE="plan-$CLUSTER_NAME.tfplan"

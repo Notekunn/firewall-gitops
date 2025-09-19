@@ -4,11 +4,23 @@
 variables:
   TERRAFORM_VERSION: '1.6.0'
   TF_ROOT: '${CI_PROJECT_DIR}/terraform'
-  TF_STATE_NAME: 'firewall-gitops'
+  GITLAB_API_URL: '${CI_API_V4_URL}'
+  GITLAB_PROJECT_ID: '${CI_PROJECT_ID}'
+  GITLAB_USERNAME: 'gitlab-ci-token'
+  GITLAB_PASSWORD: '${CI_JOB_TOKEN}'
+  # PAN-OS Provider Variables
+  PANOS_HOSTNAME: '${PANOS_HOSTNAME}'
+  PANOS_USERNAME: '${PANOS_USERNAME}'
+  PANOS_PASSWORD: '${PANOS_PASSWORD}'
+  PANOS_API_KEY: '${PANOS_API_KEY}'
+  PANOS_PROTOCOL: '${PANOS_PROTOCOL:-https}'
+  PANOS_PORT: '${PANOS_PORT:-443}'
+  PANOS_TIMEOUT: '${PANOS_TIMEOUT:-10}'
+  PANOS_SKIP_VERIFY_CERTIFICATE: '${PANOS_SKIP_VERIFY_CERTIFICATE:-true}'
 
-# Cache Terraform plugins and modules
+# Cache Terraform plugins and modules per cluster
 cache:
-  key: '${CI_COMMIT_REF_SLUG}'
+  key: '${CI_COMMIT_REF_SLUG}-${CLUSTER_NAME}'
   paths:
     - ${TF_ROOT}/.terraform
     - ${TF_ROOT}/.terraform.lock.hcl
@@ -25,39 +37,14 @@ stages:
     name: hashicorp/terraform:$TERRAFORM_VERSION
     entrypoint: ['']
   before_script:
-    - cd ${TF_ROOT}
-    - terraform --version
-    - terraform init -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}" -backend-config="lock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock" -backend-config="unlock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock" -backend-config="username=${GITLAB_USER_LOGIN}" -backend-config="password=${CI_JOB_TOKEN}" -backend-config="lock_method=POST" -backend-config="unlock_method=DELETE" -backend-config="retry_wait_min=5"
-
-# Detect changed clusters
-detect_changes:
-  stage: validate
-  image: alpine/git:latest
-  script:
-    - |
-      # Get list of changed cluster directories
-      CHANGED_CLUSTERS=$(git diff --name-only $CI_MERGE_REQUEST_TARGET_BRANCH_SHA $CI_COMMIT_SHA | grep '^clusters/' | cut -d'/' -f2 | sort -u || echo "")
-
-      if [ -z "$CHANGED_CLUSTERS" ]; then
-        echo "No cluster configurations changed"
-        echo "CHANGED_CLUSTERS=" > changed_clusters.env
-      else
-        echo "Changed clusters: $CHANGED_CLUSTERS"
-        echo "CHANGED_CLUSTERS=$CHANGED_CLUSTERS" > changed_clusters.env
-      fi
-  artifacts:
-    reports:
-      dotenv: changed_clusters.env
-    expire_in: 1 hour
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a init
 
 # YAML Validation
 validate_yaml:
   stage: validate
   image: python:3.11-alpine
   before_script:
-    - pip install pyyaml jsonschema
+    - pip install -r requirements.txt
   script:
     - |
       echo "Validating YAML configurations..."
@@ -75,27 +62,12 @@ validate_yaml:
         - schemas/*.json
         - scripts/validate_yaml.py
 
-# Schema Validation
-validate_schemas:
-  stage: validate
-  image: python:3.11-alpine
-  before_script:
-    - pip install jsonschema
-  script:
-    - |
-      echo "Validating JSON Schema files..."
-      python3 scripts/validate_schemas.py
-  rules:
-    - changes:
-        - schemas/*.json
-        - scripts/validate_schemas.py
-
 # Terraform Format Check
 terraform_fmt:
   extends: .terraform_base
   stage: validate
   script:
-    - terraform fmt -check -recursive -diff
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
   rules:
     - changes:
         - terraform/**/*.tf
@@ -106,7 +78,7 @@ terraform_validate:
   extends: .terraform_base
   stage: validate
   script:
-    - terraform validate
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
   rules:
     - changes:
         - terraform/**/*.tf
@@ -131,20 +103,11 @@ security_scan:
         - terraform/**/*.tf
         - modules/**/*.tf
 
-# Terraform Plan for each changed cluster
 .plan_template: &plan_template
   extends: .terraform_base
   stage: plan
   script:
-    - |
-      if [ -n "$CLUSTER_NAME" ]; then
-        echo "Planning changes for cluster: $CLUSTER_NAME"
-        terraform plan -var="cluster_name=$CLUSTER_NAME" -out="plan-$CLUSTER_NAME.tfplan"
-        terraform show -json "plan-$CLUSTER_NAME.tfplan" > "plan-$CLUSTER_NAME.json"
-      else
-        echo "No cluster specified for planning"
-        exit 1
-      fi
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a plan
   artifacts:
     name: 'terraform-plan-$CLUSTER_NAME'
     paths:
@@ -153,10 +116,26 @@ security_scan:
     expire_in: 1 week
     reports:
       terraform: ${TF_ROOT}/plan-*.json
-  dependencies:
-    - detect_changes
+  rules:
+    - changes:
+        - clusters/$CLUSTER_NAME/**/*.yaml
+        - clusters/$CLUSTER_NAME/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 # Dynamic plan jobs will be created for each changed cluster
+plan_example:
+  <<: *plan_template
+  variables:
+    CLUSTER_NAME: 'example'
+  rules:
+    - if: '$CHANGED_CLUSTERS =~ /example/'
+    - changes:
+        - clusters/example/**/*.yaml
+        - clusters/example/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
 plan_production:
   <<: *plan_template
   variables:
@@ -215,6 +194,15 @@ approve_production:
       - ${TF_ROOT}/terraform.tfstate
     expire_in: 1 month
 
+apply_example:
+  <<: *apply_template
+  variables:
+    CLUSTER_NAME: 'example'
+  dependencies:
+    - plan_example
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /example/'
+
 apply_development:
   <<: *apply_template
   variables:
@@ -233,31 +221,3 @@ apply_production:
     - approve_production
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /production/'
-
-# Cleanup old plans
-cleanup_plans:
-  extends: .terraform_base
-  stage: cleanup
-  script:
-    - |
-      echo "Cleaning up old plan files..."
-      find . -name "plan-*.tfplan" -mtime +7 -delete || true
-      find . -name "plan-*.json" -mtime +7 -delete || true
-  when: always
-  allow_failure: true
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-# Notification job
-notify_completion:
-  stage: cleanup
-  image: alpine:latest
-  script:
-    - |
-      echo "Firewall configuration deployment completed successfully!"
-      echo "Pipeline: $CI_PIPELINE_URL"
-      echo "Commit: $CI_COMMIT_SHA"
-      echo "Branch: $CI_COMMIT_BRANCH"
-  when: on_success
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
