@@ -1,0 +1,150 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://schemas.firewall-gitops.local/cluster-config.schema.json",
+	"title": "Firewall GitOps Cluster Configuration",
+	"description": "Schema for cluster configuration files in the Firewall GitOps project",
+	"type": "object",
+	"required": ["cluster", "firewall"],
+	"additionalProperties": false,
+	"properties": {
+		"cluster": {
+			"type": "object",
+			"description": "Cluster metadata and identification",
+			"required": ["name", "environment"],
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Unique cluster name",
+					"pattern": "^[a-zA-Z0-9-_]+$",
+					"minLength": 1,
+					"maxLength": 64,
+					"examples": ["production-east", "dev-cluster", "staging_env"]
+				},
+				"environment": {
+					"type": "string",
+					"description": "Environment type",
+					"enum": ["development", "production", "test", "staging"]
+				},
+				"tags": {
+					"type": "array",
+					"description": "Additional tags for cluster identification",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32
+					},
+					"uniqueItems": true
+				}
+			}
+		},
+		"firewall": {
+			"type": "object",
+			"description": "Firewall configuration and connection details",
+			"required": ["type"],
+			"additionalProperties": false,
+			"properties": {
+				"type": {
+					"type": "string",
+					"description": "Firewall vendor type",
+					"enum": ["palo-alto", "fortinet"],
+					"examples": ["palo-alto"]
+				},
+				"panorama": {
+					"type": "object",
+					"description": "Panorama-managed firewall configuration",
+					"required": ["device_group"],
+					"additionalProperties": false,
+					"properties": {
+						"device_group": {
+							"type": "string",
+							"description": "Panorama device group name",
+							"minLength": 1,
+							"maxLength": 64,
+							"examples": ["Production-DG", "Dev-Device-Group"]
+						},
+						"panorama_device": {
+							"type": "string",
+							"description": "Panorama device hostname or IP",
+							"default": "localhost.localdomain",
+							"minLength": 1,
+							"maxLength": 255,
+							"examples": ["panorama.company.com", "10.1.1.100"]
+						},
+						"rulebase": {
+							"type": "string",
+							"description": "Rulebase type for rule placement",
+							"enum": ["pre-rulebase", "post-rulebase"],
+							"default": "pre-rulebase"
+						}
+					}
+				},
+				"standalone": {
+					"type": "object",
+					"description": "Standalone NGFW configuration",
+					"additionalProperties": false,
+					"properties": {
+						"ngfw_device": {
+							"type": "string",
+							"description": "NGFW device hostname or IP",
+							"default": "localhost.localdomain",
+							"minLength": 1,
+							"maxLength": 255,
+							"examples": ["firewall.company.com", "192.168.1.1"]
+						},
+						"vsys_name": {
+							"type": "string",
+							"description": "Virtual system name",
+							"default": "vsys1",
+							"pattern": "^vsys[0-9]+$",
+							"examples": ["vsys1", "vsys2"]
+						}
+					}
+				}
+			},
+			"oneOf": [
+				{
+					"required": ["panorama"],
+					"not": { "required": ["standalone"] }
+				},
+				{
+					"required": ["standalone"],
+					"not": { "required": ["panorama"] }
+				}
+			]
+		},
+		"position": {
+			"type": "object",
+			"description": "Rule positioning configuration",
+			"required": ["where"],
+			"additionalProperties": false,
+			"properties": {
+				"where": {
+					"type": "string",
+					"description": "Where to place the rules",
+					"enum": ["first", "last", "after", "before"],
+					"default": "last"
+				},
+				"pivot": {
+					"type": "string",
+					"description": "Reference rule name for relative positioning (required for 'after'/'before')",
+					"minLength": 1,
+					"maxLength": 64
+				},
+				"directly": {
+					"type": "boolean",
+					"description": "Place directly adjacent to pivot rule",
+					"default": false
+				}
+			},
+			"if": {
+				"properties": {
+					"where": { "enum": ["after", "before"] }
+				}
+			},
+			"then": {
+				"required": ["pivot"]
+			}
+		}
+	}
+}

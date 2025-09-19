@@ -1,0 +1,437 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://schemas.firewall-gitops.local/firewall-rules.schema.json",
+	"title": "Firewall GitOps Rules Configuration",
+	"description": "Schema for firewall rules configuration files in the Firewall GitOps project",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"addresses": {
+			"type": "array",
+			"description": "List of address objects to create",
+			"items": {
+				"$ref": "#/definitions/address"
+			}
+		},
+		"services": {
+			"type": "array",
+			"description": "List of service objects to create",
+			"items": {
+				"$ref": "#/definitions/service"
+			}
+		},
+		"rules": {
+			"type": "object",
+			"description": "Map of rule groups containing firewall rules",
+			"patternProperties": {
+				"^[a-zA-Z0-9-_]+$": {
+					"$ref": "#/definitions/rule_group"
+				}
+			},
+			"additionalProperties": false
+		}
+	},
+	"definitions": {
+		"address": {
+			"type": "object",
+			"description": "Address object definition based on firewall_addresses variable",
+			"required": ["name"],
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Unique address object name",
+					"pattern": "^[a-zA-Z0-9-_]+$",
+					"minLength": 1,
+					"maxLength": 64
+				},
+				"description": {
+					"type": "string",
+					"description": "Human-readable description",
+					"default": "",
+					"maxLength": 255
+				},
+				"tags": {
+					"type": "array",
+					"description": "List of tags for organization",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32
+					},
+					"uniqueItems": true,
+					"maxItems": 10,
+					"default": []
+				},
+				"ip_netmask": {
+					"type": ["string", "null"],
+					"description": "IP address with netmask (e.g., 192.168.1.0/24)",
+					"pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\\/(?:[0-9]|[1-2][0-9]|3[0-2]))?$"
+				},
+				"ip_range": {
+					"type": ["string", "null"],
+					"description": "IP address range (e.g., 192.168.1.1-192.168.1.10)",
+					"pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)-(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+				},
+				"ip_wildcard": {
+					"type": ["string", "null"],
+					"description": "IP address with wildcard mask (e.g., 192.168.1.0/0.0.0.255)"
+				},
+				"fqdn": {
+					"type": ["string", "null"],
+					"description": "Fully qualified domain name",
+					"pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+					"maxLength": 255
+				}
+			},
+			"anyOf": [
+				{ "required": ["ip_netmask"] },
+				{ "required": ["ip_range"] },
+				{ "required": ["ip_wildcard"] },
+				{ "required": ["fqdn"] }
+			]
+		},
+		"service": {
+			"type": "object",
+			"description": "Service object definition based on firewall_services variable",
+			"required": ["name", "type", "source_port"],
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Unique service object name",
+					"pattern": "^[a-zA-Z0-9-_]+$",
+					"minLength": 1,
+					"maxLength": 64
+				},
+				"description": {
+					"type": "string",
+					"description": "Human-readable description",
+					"default": "",
+					"maxLength": 255
+				},
+				"type": {
+					"type": "string",
+					"description": "Protocol type",
+					"enum": ["tcp", "udp"]
+				},
+				"tags": {
+					"type": "array",
+					"description": "List of tags for organization",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32
+					},
+					"uniqueItems": true,
+					"maxItems": 10,
+					"default": []
+				},
+				"destination_port": {
+					"type": ["string", "null"],
+					"description": "Destination port or port range (e.g., '80', '80-90', '1024-65535')",
+					"pattern": "^(?:[1-9][0-9]{0,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])(?:-(?:[1-9][0-9]{0,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$"
+				},
+				"source_port": {
+					"type": "string",
+					"description": "Source port or port range (e.g., '80', '80-90', '1024-65535')",
+					"pattern": "^(?:[1-9][0-9]{0,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])(?:-(?:[1-9][0-9]{0,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$"
+				}
+			}
+		},
+		"rule_group": {
+			"type": "object",
+			"description": "Rule group containing multiple firewall rules based on firewall_rules variable",
+			"required": ["rules"],
+			"additionalProperties": false,
+			"properties": {
+				"description": {
+					"type": "string",
+					"description": "Rule group description",
+					"default": "",
+					"maxLength": 255
+				},
+				"rules": {
+					"type": "array",
+					"description": "List of firewall rules",
+					"items": {
+						"$ref": "#/definitions/security_rule"
+					},
+					"minItems": 1
+				}
+			}
+		},
+		"security_rule": {
+			"type": "object",
+			"description": "Security policy rule definition based on firewall_rules variable",
+			"required": [
+				"name",
+				"source_zones",
+				"destination_zones",
+				"source_addresses",
+				"destination_addresses",
+				"applications",
+				"services"
+			],
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Unique rule name",
+					"pattern": "^[a-zA-Z0-9-_]+$",
+					"minLength": 1,
+					"maxLength": 64
+				},
+				"description": {
+					"type": "string",
+					"description": "Rule description",
+					"default": "",
+					"maxLength": 255
+				},
+				"rule_type": {
+					"type": "string",
+					"description": "Rule type",
+					"enum": ["universal", "interzone", "intrazone"],
+					"default": "universal"
+				},
+				"source_zones": {
+					"type": "array",
+					"description": "List of source zones",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"destination_zones": {
+					"type": "array",
+					"description": "List of destination zones",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"source_addresses": {
+					"type": "array",
+					"description": "List of source addresses or address objects",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"destination_addresses": {
+					"type": "array",
+					"description": "List of destination addresses or address objects",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"applications": {
+					"type": "array",
+					"description": "List of applications",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"services": {
+					"type": "array",
+					"description": "List of services or service objects",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"minItems": 1,
+					"uniqueItems": true
+				},
+				"source_users": {
+					"type": "array",
+					"description": "List of source users",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 64
+					},
+					"uniqueItems": true,
+					"default": []
+				},
+				"action": {
+					"type": "string",
+					"description": "Rule action",
+					"enum": ["allow", "deny", "drop", "reset-client", "reset-server", "reset-both"],
+					"default": "allow"
+				},
+				"log_start": {
+					"type": "boolean",
+					"description": "Log session start",
+					"default": false
+				},
+				"log_end": {
+					"type": "boolean",
+					"description": "Log session end",
+					"default": true
+				},
+				"log_setting": {
+					"type": ["string", "null"],
+					"description": "Log forwarding profile name",
+					"maxLength": 64
+				},
+				"disabled": {
+					"type": "boolean",
+					"description": "Disable the rule",
+					"default": false
+				},
+				"schedule": {
+					"type": ["string", "null"],
+					"description": "Schedule object name",
+					"maxLength": 64
+				},
+				"tags": {
+					"type": "array",
+					"description": "List of tags",
+					"items": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32
+					},
+					"uniqueItems": true,
+					"maxItems": 10,
+					"default": []
+				},
+				"group_tag": {
+					"type": ["string", "null"],
+					"description": "Group tag for rule organization",
+					"maxLength": 32
+				},
+				"negate_source": {
+					"type": "boolean",
+					"description": "Negate source addresses",
+					"default": false
+				},
+				"negate_destination": {
+					"type": "boolean",
+					"description": "Negate destination addresses",
+					"default": false
+				},
+				"profile_setting": {
+					"type": ["object", "null"],
+					"description": "Security profile settings",
+					"additionalProperties": false,
+					"properties": {
+						"group": {
+							"type": "array",
+							"description": "List of security profile group names",
+							"items": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 64
+							},
+							"uniqueItems": true,
+							"default": []
+						},
+						"profiles": {
+							"type": ["object", "null"],
+							"description": "Individual security profiles",
+							"additionalProperties": false,
+							"properties": {
+								"virus": {
+									"type": "array",
+									"description": "Antivirus profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								},
+								"spyware": {
+									"type": "array",
+									"description": "Anti-spyware profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								},
+								"vulnerability": {
+									"type": "array",
+									"description": "Vulnerability protection profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								},
+								"url_filtering": {
+									"type": "array",
+									"description": "URL filtering profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								},
+								"file_blocking": {
+									"type": "array",
+									"description": "File blocking profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								},
+								"wildfire_analysis": {
+									"type": "array",
+									"description": "WildFire analysis profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								},
+								"data_filtering": {
+									"type": "array",
+									"description": "Data filtering profile names",
+									"items": {
+										"type": "string",
+										"minLength": 1,
+										"maxLength": 64
+									},
+									"uniqueItems": true,
+									"default": []
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,16 @@
+# Development Cluster Configuration
+cluster:
+  name: 'example-cluster'
+  environment: development
+
+firewall:
+  type: palo-alto
+
+  # Standalone firewall configuration for example
+  standalone:
+    ngfw_device: 'example-firewall.company.com'
+    vsys_name: 'vsys1'
+
+# Rule positioning - add rules at the last for development
+position:
+  where: last

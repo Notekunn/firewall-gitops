@@ -1,0 +1,263 @@
+# GitLab CI Pipeline for Firewall GitOps
+# This pipeline validates, plans, and applies firewall configurations
+
+variables:
+  TERRAFORM_VERSION: '1.6.0'
+  TF_ROOT: '${CI_PROJECT_DIR}/terraform'
+  TF_STATE_NAME: 'firewall-gitops'
+
+# Cache Terraform plugins and modules
+cache:
+  key: '${CI_COMMIT_REF_SLUG}'
+  paths:
+    - ${TF_ROOT}/.terraform
+    - ${TF_ROOT}/.terraform.lock.hcl
+
+stages:
+  - validate
+  - plan
+  - apply
+  - cleanup
+
+# Base job template
+.terraform_base:
+  image:
+    name: hashicorp/terraform:$TERRAFORM_VERSION
+    entrypoint: ['']
+  before_script:
+    - cd ${TF_ROOT}
+    - terraform --version
+    - terraform init -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}" -backend-config="lock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock" -backend-config="unlock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock" -backend-config="username=${GITLAB_USER_LOGIN}" -backend-config="password=${CI_JOB_TOKEN}" -backend-config="lock_method=POST" -backend-config="unlock_method=DELETE" -backend-config="retry_wait_min=5"
+
+# Detect changed clusters
+detect_changes:
+  stage: validate
+  image: alpine/git:latest
+  script:
+    - |
+      # Get list of changed cluster directories
+      CHANGED_CLUSTERS=$(git diff --name-only $CI_MERGE_REQUEST_TARGET_BRANCH_SHA $CI_COMMIT_SHA | grep '^clusters/' | cut -d'/' -f2 | sort -u || echo "")
+
+      if [ -z "$CHANGED_CLUSTERS" ]; then
+        echo "No cluster configurations changed"
+        echo "CHANGED_CLUSTERS=" > changed_clusters.env
+      else
+        echo "Changed clusters: $CHANGED_CLUSTERS"
+        echo "CHANGED_CLUSTERS=$CHANGED_CLUSTERS" > changed_clusters.env
+      fi
+  artifacts:
+    reports:
+      dotenv: changed_clusters.env
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# YAML Validation
+validate_yaml:
+  stage: validate
+  image: python:3.11-alpine
+  before_script:
+    - pip install pyyaml jsonschema
+  script:
+    - |
+      echo "Validating YAML configurations..."
+      echo "Using JSON schemas from schemas/ directory"
+      python3 scripts/validate_yaml.py
+  artifacts:
+    reports:
+      junit: validation-results.xml
+    when: always
+    expire_in: 1 week
+  rules:
+    - changes:
+        - clusters/**/*.yaml
+        - clusters/**/*.yml
+        - schemas/*.json
+        - scripts/validate_yaml.py
+
+# Schema Validation
+validate_schemas:
+  stage: validate
+  image: python:3.11-alpine
+  before_script:
+    - pip install jsonschema
+  script:
+    - |
+      echo "Validating JSON Schema files..."
+      python3 scripts/validate_schemas.py
+  rules:
+    - changes:
+        - schemas/*.json
+        - scripts/validate_schemas.py
+
+# Terraform Format Check
+terraform_fmt:
+  extends: .terraform_base
+  stage: validate
+  script:
+    - terraform fmt -check -recursive -diff
+  rules:
+    - changes:
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+# Terraform Validation
+terraform_validate:
+  extends: .terraform_base
+  stage: validate
+  script:
+    - terraform validate
+  rules:
+    - changes:
+        - terraform/**/*.tf
+        - modules/**/*.tf
+        - clusters/**/*.yaml
+        - clusters/**/*.yml
+
+# Security Scan
+security_scan:
+  stage: validate
+  image:
+    name: bridgecrew/checkov:latest
+    entrypoint: ['']
+  script:
+    - |
+      echo "Running security scan on Terraform configurations..."
+      checkov -d terraform/ --framework terraform --output cli --quiet
+      checkov -d modules/ --framework terraform --output cli --quiet
+  allow_failure: true
+  rules:
+    - changes:
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+# Terraform Plan for each changed cluster
+.plan_template: &plan_template
+  extends: .terraform_base
+  stage: plan
+  script:
+    - |
+      if [ -n "$CLUSTER_NAME" ]; then
+        echo "Planning changes for cluster: $CLUSTER_NAME"
+        terraform plan -var="cluster_name=$CLUSTER_NAME" -out="plan-$CLUSTER_NAME.tfplan"
+        terraform show -json "plan-$CLUSTER_NAME.tfplan" > "plan-$CLUSTER_NAME.json"
+      else
+        echo "No cluster specified for planning"
+        exit 1
+      fi
+  artifacts:
+    name: 'terraform-plan-$CLUSTER_NAME'
+    paths:
+      - ${TF_ROOT}/plan-*.tfplan
+      - ${TF_ROOT}/plan-*.json
+    expire_in: 1 week
+    reports:
+      terraform: ${TF_ROOT}/plan-*.json
+  dependencies:
+    - detect_changes
+
+# Dynamic plan jobs will be created for each changed cluster
+plan_production:
+  <<: *plan_template
+  variables:
+    CLUSTER_NAME: 'production'
+  rules:
+    - if: '$CHANGED_CLUSTERS =~ /production/'
+    - changes:
+        - clusters/production/**/*.yaml
+        - clusters/production/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+plan_development:
+  <<: *plan_template
+  variables:
+    CLUSTER_NAME: 'development'
+  rules:
+    - if: '$CHANGED_CLUSTERS =~ /development/'
+    - changes:
+        - clusters/development/**/*.yaml
+        - clusters/development/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+# Manual approval for production deployments
+approve_production:
+  stage: plan
+  image: alpine:latest
+  script:
+    - echo "Production deployment requires manual approval"
+  when: manual
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /production/'
+
+# Terraform Apply
+.apply_template: &apply_template
+  extends: .terraform_base
+  stage: apply
+  script:
+    - |
+      if [ -n "$CLUSTER_NAME" ]; then
+        echo "Applying changes for cluster: $CLUSTER_NAME"
+        terraform apply -auto-approve "plan-$CLUSTER_NAME.tfplan"
+        
+        # Output summary
+        echo "=== Deployment Summary ==="
+        terraform output -json configuration_summary | jq -r '.'
+      else
+        echo "No cluster specified for apply"
+        exit 1
+      fi
+  artifacts:
+    name: 'terraform-apply-$CLUSTER_NAME'
+    paths:
+      - ${TF_ROOT}/terraform.tfstate
+    expire_in: 1 month
+
+apply_development:
+  <<: *apply_template
+  variables:
+    CLUSTER_NAME: 'development'
+  dependencies:
+    - plan_development
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /development/'
+
+apply_production:
+  <<: *apply_template
+  variables:
+    CLUSTER_NAME: 'production'
+  dependencies:
+    - plan_production
+    - approve_production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /production/'
+
+# Cleanup old plans
+cleanup_plans:
+  extends: .terraform_base
+  stage: cleanup
+  script:
+    - |
+      echo "Cleaning up old plan files..."
+      find . -name "plan-*.tfplan" -mtime +7 -delete || true
+      find . -name "plan-*.json" -mtime +7 -delete || true
+  when: always
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Notification job
+notify_completion:
+  stage: cleanup
+  image: alpine:latest
+  script:
+    - |
+      echo "Firewall configuration deployment completed successfully!"
+      echo "Pipeline: $CI_PIPELINE_URL"
+      echo "Commit: $CI_COMMIT_SHA"
+      echo "Branch: $CI_COMMIT_BRANCH"
+  when: on_success
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
