@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 # Deployment script for local development and testing
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 TERRAFORM_DIR="$PROJECT_ROOT/terraform"
 
@@ -54,7 +54,7 @@ warning() {
 }
 
 # Parse command line arguments
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
     case $1 in
         -c|--cluster)
             CLUSTER_NAME="$2"
@@ -84,30 +84,35 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate required parameters
-if [[ -z "$CLUSTER_NAME" ]]; then
+if [ -z "$CLUSTER_NAME" ]; then
     error "Cluster name is required"
     usage
 fi
 
 # Validate action
-if [[ ! "$ACTION" =~ ^(plan|apply|destroy)$ ]]; then
-    error "Invalid action: $ACTION. Must be one of: plan, apply, destroy"
-    exit 1
-fi
+case "$ACTION" in
+    init|fmt|validate|plan|apply|destroy)
+        # Valid actions
+        ;;
+    *)
+        error "Invalid action: $ACTION. Must be one of: init, fmt, validate, plan, apply, destroy"
+        exit 1
+        ;;
+esac
 
 # Check if cluster configuration exists
 CLUSTER_DIR="$PROJECT_ROOT/clusters/$CLUSTER_NAME"
-if [[ ! -d "$CLUSTER_DIR" ]]; then
+if [ ! -d "$CLUSTER_DIR" ]; then
     error "Cluster directory not found: $CLUSTER_DIR"
     exit 1
 fi
 
-if [[ ! -f "$CLUSTER_DIR/cluster.yaml" ]]; then
+if [ ! -f "$CLUSTER_DIR/cluster.yaml" ]; then
     error "Cluster configuration not found: $CLUSTER_DIR/cluster.yaml"
     exit 1
 fi
 
-if [[ ! -f "$CLUSTER_DIR/rules.yaml" ]]; then
+if [ ! -f "$CLUSTER_DIR/rules.yaml" ]; then
     error "Firewall rules not found: $CLUSTER_DIR/rules.yaml"
     exit 1
 fi
@@ -140,9 +145,9 @@ log "Initializing Terraform with GitLab managed state for cluster: $CLUSTER_NAME
 TERRAFORM_WORKSPACE="firewall-$CLUSTER_NAME"
 
 # Set default GitLab configuration if not in CI environment
-if [[ -z "${GITLAB_CI}" ]]; then
+if [ -z "${GITLAB_CI}" ]; then
     # Local development - require GitLab configuration
-    if [[ -z "${GITLAB_PROJECT_ID}" || -z "${GITLAB_TOKEN}" || -z "${GITLAB_API_URL}" ]]; then
+    if [ -z "${GITLAB_PROJECT_ID}" ] || [ -z "${GITLAB_TOKEN}" ] || [ -z "${GITLAB_API_URL}" ]; then
         error "GitLab configuration required for state management"
         error "Please set the following environment variables:"
         error "  GITLAB_PROJECT_ID - Your GitLab project ID"
@@ -215,7 +220,7 @@ case $ACTION in
         PLAN_FILE="plan-$CLUSTER_NAME.tfplan"
         
         # Create plan first if it doesn't exist
-        if [[ ! -f "$PLAN_FILE" ]]; then
+        if [ ! -f "$PLAN_FILE" ]; then
             log "Creating Terraform plan first..."
             if ! terraform plan -var="cluster_name=$CLUSTER_NAME" -out="$PLAN_FILE"; then
                 error "Terraform plan failed"
@@ -227,11 +232,11 @@ case $ACTION in
         log "Applying Terraform plan for cluster: $CLUSTER_NAME"
         
         APPLY_ARGS=""
-        if [[ "$AUTO_APPROVE" == "true" ]]; then
+        if [ "$AUTO_APPROVE" = "true" ]; then
             APPLY_ARGS="-auto-approve"
         fi
         
-        if [[ "$DRY_RUN" == "true" ]]; then
+        if [ "$DRY_RUN" = "true" ]; then
             log "Dry run mode - skipping actual apply"
             success "Dry run completed"
         else
@@ -251,9 +256,10 @@ case $ACTION in
     destroy)
         warning "This will destroy all resources for cluster: $CLUSTER_NAME"
         
-        if [[ "$AUTO_APPROVE" != "true" ]]; then
-            read -p "Are you sure you want to continue? (yes/no): " confirm
-            if [[ "$confirm" != "yes" ]]; then
+        if [ "$AUTO_APPROVE" != "true" ]; then
+            printf "Are you sure you want to continue? (yes/no): "
+            read confirm
+            if [ "$confirm" != "yes" ]; then
                 log "Destroy cancelled"
                 exit 0
             fi
@@ -262,11 +268,11 @@ case $ACTION in
         log "Destroying resources for cluster: $CLUSTER_NAME"
         
         DESTROY_ARGS="-var=cluster_name=$CLUSTER_NAME"
-        if [[ "$AUTO_APPROVE" == "true" ]]; then
+        if [ "$AUTO_APPROVE" = "true" ]; then
             DESTROY_ARGS="$DESTROY_ARGS -auto-approve"
         fi
         
-        if [[ "$DRY_RUN" == "true" ]]; then
+        if [ "$DRY_RUN" = "true" ]; then
             log "Dry run mode - showing destroy plan"
             terraform plan -destroy $DESTROY_ARGS
             success "Dry run completed"

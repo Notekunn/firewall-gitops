@@ -41,8 +41,9 @@ resource "panos_service" "service_objects" {
 }
 
 resource "panos_security_policy_rules" "firewall_rules" {
-  location = local.location
-  position = var.position
+  location   = local.location
+  position   = var.position
+  depends_on = [panos_addresses.address_objects, panos_service.service_objects]
   rules = flatten([
     for group_key, group in var.firewall_rules : [
       for rule in group.rules : {
