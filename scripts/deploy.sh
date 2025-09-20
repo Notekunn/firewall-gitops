@@ -179,9 +179,6 @@ case $ACTION in
         ;;
     init)
         log "Initializing Terraform..."
-        terraform init
-        success "Terraform initialized successfully"
-
         if terraform init \
             -backend-config="address=${GITLAB_API_URL}/projects/${GITLAB_PROJECT_ID}/terraform/state/${TERRAFORM_WORKSPACE}" \
             -backend-config="lock_address=${GITLAB_API_URL}/projects/${GITLAB_PROJECT_ID}/terraform/state/${TERRAFORM_WORKSPACE}/lock" \
