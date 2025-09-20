@@ -66,7 +66,7 @@ variable "firewall_rules" {
 }
 
 variable "location" {
-  type = optional(object({
+  type = object({
     vsys = optional(object({
       name        = optional(string, null)
       ngfw_device = optional(string, null)
@@ -79,7 +79,7 @@ variable "location" {
       panorama_device = optional(string, null)
       rulebase        = optional(string, null)
     }), null)
-  }), null)
+  })
   description = "The location of the firewall"
 }
 
