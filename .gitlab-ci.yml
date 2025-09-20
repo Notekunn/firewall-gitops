@@ -2,8 +2,16 @@
 # This pipeline validates, plans, and applies firewall configurations
 
 variables:
-  TERRAFORM_VERSION: '1.6.0'
+  TERRAFORM_VERSION: '1.13.0'
   TF_ROOT: '${CI_PROJECT_DIR}/terraform'
+  SELECTED_CLUSTER:
+    value: 'none'
+    options:
+      - example
+      - production
+      - development
+      - none
+    description: 'Select the cluster to deploy'
   GITLAB_API_URL: '${CI_API_V4_URL}'
   GITLAB_PROJECT_ID: '${CI_PROJECT_ID}'
   GITLAB_USERNAME: 'gitlab-ci-token'
@@ -123,42 +131,37 @@ security_scan:
         - terraform/**/*.tf
         - modules/**/*.tf
 
+# Terraform Apply
+.apply_template: &apply_template
+  extends: .terraform_base
+  stage: apply
+  # variables:
+  #   CLUSTER_NAME: '${SELECTED_CLUSTER}'
+  script:
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a apply
+  artifacts:
+    name: 'terraform-apply-$CLUSTER_NAME'
+    paths:
+      - ${TF_ROOT}/terraform.tfstate
+    expire_in: 1 month
+  rules:
+    # - if: '$SELECTED_CLUSTER != "none" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - clusters/$CLUSTER_NAME/**/*.yaml
+        - clusters/$CLUSTER_NAME/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
 # Dynamic plan jobs will be created for each changed cluster
 plan_example:
   <<: *plan_template
   variables:
     CLUSTER_NAME: 'example'
-  rules:
-    - if: '$CHANGED_CLUSTERS =~ /example/'
-    - changes:
-        - clusters/example/**/*.yaml
-        - clusters/example/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
 
 plan_production:
   <<: *plan_template
   variables:
     CLUSTER_NAME: 'production'
-  rules:
-    - if: '$CHANGED_CLUSTERS =~ /production/'
-    - changes:
-        - clusters/production/**/*.yaml
-        - clusters/production/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-plan_development:
-  <<: *plan_template
-  variables:
-    CLUSTER_NAME: 'development'
-  rules:
-    - if: '$CHANGED_CLUSTERS =~ /development/'
-    - changes:
-        - clusters/development/**/*.yaml
-        - clusters/development/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
 
 # Manual approval for production deployments
 approve_production:
@@ -169,30 +172,12 @@ approve_production:
   when: manual
   allow_failure: false
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /production/'
-
-# Terraform Apply
-.apply_template: &apply_template
-  extends: .terraform_base
-  stage: apply
-  script:
-    - |
-      if [ -n "$CLUSTER_NAME" ]; then
-        echo "Applying changes for cluster: $CLUSTER_NAME"
-        terraform apply -auto-approve "plan-$CLUSTER_NAME.tfplan"
-        
-        # Output summary
-        echo "=== Deployment Summary ==="
-        terraform output -json configuration_summary | jq -r '.'
-      else
-        echo "No cluster specified for apply"
-        exit 1
-      fi
-  artifacts:
-    name: 'terraform-apply-$CLUSTER_NAME'
-    paths:
-      - ${TF_ROOT}/terraform.tfstate
-    expire_in: 1 month
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - changes:
+        - clusters/production/**/*.yaml
+        - clusters/production/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 apply_example:
   <<: *apply_template
@@ -200,8 +185,6 @@ apply_example:
     CLUSTER_NAME: 'example'
   dependencies:
     - plan_example
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /example/'
 
 apply_development:
   <<: *apply_template
@@ -209,8 +192,6 @@ apply_development:
     CLUSTER_NAME: 'development'
   dependencies:
     - plan_development
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /development/'
 
 apply_production:
   <<: *apply_template
@@ -218,6 +199,4 @@ apply_production:
     CLUSTER_NAME: 'production'
   dependencies:
     - plan_production
-    - approve_production
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CHANGED_CLUSTERS =~ /production/'
+    - approve_production'
