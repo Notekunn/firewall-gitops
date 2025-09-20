@@ -15,6 +15,7 @@ This project provides a GitOps approach to managing firewall configurations usin
 
 - ✅ **Palo Alto Networks (PAN-OS)** - Full support for Panorama and standalone NGFW
 - 🚧 **Fortinet** (planned for future release)
+- 🚧 **Check Point** (planned for future release)
 
 ## 📁 Project Structure
 
