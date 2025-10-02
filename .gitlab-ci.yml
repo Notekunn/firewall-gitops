@@ -70,29 +70,95 @@ validate_yaml:
         - schemas/*.json
         - scripts/validate_yaml.py
 
-# Terraform Format Check
-terraform_fmt:
+# Terraform Format Check for Example
+terraform_fmt_example:
   extends: .terraform_base
   stage: validate
+  variables:
+    CLUSTER_NAME: 'example'
   script:
     - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
   rules:
     - changes:
+        - clusters/example/**/*.yaml
+        - clusters/example/**/*.yml
         - terraform/**/*.tf
         - modules/**/*.tf
 
-# Terraform Validation
-terraform_validate:
+# Terraform Format Check for Development
+terraform_fmt_development:
   extends: .terraform_base
   stage: validate
+  variables:
+    CLUSTER_NAME: 'development'
+  script:
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
+  rules:
+    - changes:
+        - clusters/development/**/*.yaml
+        - clusters/development/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+# Terraform Format Check for Production
+terraform_fmt_production:
+  extends: .terraform_base
+  stage: validate
+  variables:
+    CLUSTER_NAME: 'production'
+  script:
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
+  rules:
+    - changes:
+        - clusters/production/**/*.yaml
+        - clusters/production/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+# Terraform Validation for Example
+terraform_validate_example:
+  extends: .terraform_base
+  stage: validate
+  variables:
+    CLUSTER_NAME: 'example'
   script:
     - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
   rules:
     - changes:
+        - clusters/example/**/*.yaml
+        - clusters/example/**/*.yml
         - terraform/**/*.tf
         - modules/**/*.tf
-        - clusters/**/*.yaml
-        - clusters/**/*.yml
+
+# Terraform Validation for Development
+terraform_validate_development:
+  extends: .terraform_base
+  stage: validate
+  variables:
+    CLUSTER_NAME: 'development'
+  script:
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
+  rules:
+    - changes:
+        - clusters/development/**/*.yaml
+        - clusters/development/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+# Terraform Validation for Production
+terraform_validate_production:
+  extends: .terraform_base
+  stage: validate
+  variables:
+    CLUSTER_NAME: 'production'
+  script:
+    - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
+  rules:
+    - changes:
+        - clusters/production/**/*.yaml
+        - clusters/production/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 # Security Scan
 security_scan:
@@ -114,6 +180,7 @@ security_scan:
 .plan_template: &plan_template
   extends: .terraform_base
   stage: plan
+  resource_group: terraform-$CLUSTER_NAME
   script:
     - ./scripts/deploy.sh -c $CLUSTER_NAME -a plan
   artifacts:
@@ -124,17 +191,12 @@ security_scan:
     expire_in: 1 week
     reports:
       terraform: ${TF_ROOT}/plan-*.json
-  rules:
-    - changes:
-        - clusters/$CLUSTER_NAME/**/*.yaml
-        - clusters/$CLUSTER_NAME/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
 
 # Terraform Apply
 .apply_template: &apply_template
   extends: .terraform_base
   stage: apply
+  resource_group: terraform-$CLUSTER_NAME
   # variables:
   #   CLUSTER_NAME: '${SELECTED_CLUSTER}'
   script:
@@ -144,24 +206,43 @@ security_scan:
     paths:
       - ${TF_ROOT}/terraform.tfstate
     expire_in: 1 month
-  rules:
-    # - if: '$SELECTED_CLUSTER != "none" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - changes:
-        - clusters/$CLUSTER_NAME/**/*.yaml
-        - clusters/$CLUSTER_NAME/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
 
 # Dynamic plan jobs will be created for each changed cluster
 plan_example:
   <<: *plan_template
   variables:
     CLUSTER_NAME: 'example'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - clusters/example/**/*.yaml
+        - clusters/example/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
+
+plan_development:
+  <<: *plan_template
+  variables:
+    CLUSTER_NAME: 'development'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - clusters/development/**/*.yaml
+        - clusters/development/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 plan_production:
   <<: *plan_template
   variables:
     CLUSTER_NAME: 'production'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - clusters/production/**/*.yaml
+        - clusters/production/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 # Manual approval for production deployments
 approve_production:
@@ -185,6 +266,13 @@ apply_example:
     CLUSTER_NAME: 'example'
   dependencies:
     - plan_example
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - clusters/example/**/*.yaml
+        - clusters/example/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 apply_development:
   <<: *apply_template
@@ -192,6 +280,13 @@ apply_development:
     CLUSTER_NAME: 'development'
   dependencies:
     - plan_development
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - clusters/development/**/*.yaml
+        - clusters/development/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
 
 apply_production:
   <<: *apply_template
@@ -199,4 +294,11 @@ apply_production:
     CLUSTER_NAME: 'production'
   dependencies:
     - plan_production
-    - approve_production'
+    - approve_production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - clusters/production/**/*.yaml
+        - clusters/production/**/*.yml
+        - terraform/**/*.tf
+        - modules/**/*.tf
