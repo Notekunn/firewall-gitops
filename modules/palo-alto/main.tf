@@ -4,6 +4,10 @@ terraform {
       source  = "paloaltonetworks/panos"
       version = "~> 2.0.5"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -79,4 +83,30 @@ resource "panos_security_policy_rules" "firewall_rules" {
       }
     ]
   ])
+}
+
+# Auto-commit changes to the firewall using null_resource
+resource "null_resource" "auto_commit" {
+  count = var.auto_commit ? 1 : 0
+
+  depends_on = [
+    panos_addresses.address_objects,
+    panos_service.service_objects,
+    panos_security_policy_rules.firewall_rules
+  ]
+
+  # Trigger on any changes to firewall resources
+  triggers = {
+    addresses_version = sha256(jsonencode(var.firewall_addresses))
+    services_version  = sha256(jsonencode(var.firewall_services))
+    rules_version     = sha256(jsonencode(var.firewall_rules))
+  }
+
+  provisioner "local-exec" {
+    command = "bash ${path.module}/scripts/commit.sh"
+    environment = {
+      COMMIT_DESCRIPTION = var.commit_description
+      COMMIT_ADMINS      = join(",", var.commit_admins)
+    }
+  }
 }

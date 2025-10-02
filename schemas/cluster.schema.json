@@ -41,7 +41,7 @@
 		"firewall": {
 			"type": "object",
 			"description": "Firewall configuration and connection details",
-			"required": ["type"],
+			"required": ["type", "auto_commit"],
 			"additionalProperties": false,
 			"properties": {
 				"type": {
@@ -98,6 +98,31 @@
 							"default": "vsys1",
 							"pattern": "^vsys[0-9]+$",
 							"examples": ["vsys1", "vsys2"]
+						}
+					}
+				},
+				"auto_commit": {
+					"type": "object",
+					"description": "Auto-commit configuration",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": {
+							"type": "boolean",
+							"description": "Enable or disable auto-commit",
+							"default": false
+						},
+						"commit_description": {
+							"type": "string",
+							"description": "Description for auto-commit"
+						},
+						"commit_admins": {
+							"type": "array",
+							"description": "List of admin usernames to attribute the commit",
+							"items": {
+								"type": "string",
+								"minLength": 0,
+								"maxLength": 32
+							}
 						}
 					}
 				}

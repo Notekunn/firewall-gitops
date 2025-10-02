@@ -100,3 +100,21 @@ variable "position" {
     error_message = "pivot is required when where is after or before"
   }
 }
+
+variable "auto_commit" {
+  type        = bool
+  default     = true
+  description = "Automatically commit changes to the firewall after applying configuration"
+}
+
+variable "commit_description" {
+  type        = string
+  default     = "Committed by Terraform"
+  description = "Description for the commit operation"
+}
+
+variable "commit_admins" {
+  type        = list(string)
+  default     = []
+  description = "List of admin users whose changes should be committed. Empty list commits all changes."
+}

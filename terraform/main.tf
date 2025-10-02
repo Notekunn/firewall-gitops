@@ -63,6 +63,9 @@ module "palo_alto_firewall" {
   firewall_services  = try(local.firewall_rules.services, [])
   position           = local.position_config
   location           = local.location_config
+  auto_commit        = try(local.cluster_config.auto_commit.enabled, true)
+  commit_description = try(local.cluster_config.auto_commit.commit_description, "Committed by Terraform GitOps")
+  commit_admins      = try(local.cluster_config.auto_commit.commit_admins, [])
 }
 
 # Future: Fortinet module (placeholder)

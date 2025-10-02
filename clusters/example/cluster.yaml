@@ -12,6 +12,11 @@ firewall:
     ngfw_device: 'localhost.localdomain'
     vsys_name: 'vsys1'
 
+  auto_commit:
+    enabled: true
+    commit_description: 'Auto-committed by Terraform GitOps for example-cluster'
+    commit_admins: []
+
 # Rule positioning - add rules at the last for development
 position:
   where: last

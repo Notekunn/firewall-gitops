@@ -8,3 +8,4 @@ variable "cluster_name" {
     error_message = "Cluster name must contain only alphanumeric characters, hyphens, and underscores."
   }
 }
+
