@@ -1,6 +1,20 @@
 #!/bin/sh
 # PAN-OS commit script
-# Commits pending changes to PAN-OS firewall via XML API
+# Commits pending changes to PAN-OS firewall via latest XML API
+#
+# This script uses partial commit to commit only the config user's changes,
+# which is the recommended approach for automation to avoid committing
+# unintended changes from other administrators.
+#
+# Environment Variables:
+#   PANOS_HOSTNAME - Firewall hostname or IP (required)
+#   PANOS_API_KEY - API key for authentication (required if no username/password)
+#   PANOS_USERNAME - Username for authentication (required if no API key)
+#   PANOS_PASSWORD - Password for authentication (required with username)
+#   PANOS_PROTOCOL - Protocol (http/https), default: https
+#   PANOS_SKIP_VERIFY_CERTIFICATE - Skip SSL verification, default: true
+#   COMMIT_DESCRIPTION - Commit description, default: "Committed by Terraform"
+#   COMMIT_ADMIN - Admin user whose changes to commit, default: PANOS_USERNAME
 
 set -e
 
@@ -73,31 +87,27 @@ if [ -z "$PANOS_API_KEY" ]; then
     success "API key generated successfully"
 fi
 
-# Build commit command XML
-COMMIT_CMD="<commit><description>${DESCRIPTION}</description>"
+# Build commit command XML using latest PAN-OS API syntax
+# Use partial commit to commit only specific admin's changes
+COMMIT_ADMIN="${COMMIT_ADMIN:-$PANOS_USERNAME}"
 
-# Add admin filter if specified
-if [ -n "$COMMIT_ADMINS" ]; then
-    COMMIT_CMD="${COMMIT_CMD}<admin>"
-    IFS=',' read -ra ADMINS <<< "$COMMIT_ADMINS"
-    for admin in "${ADMINS[@]}"; do
-        COMMIT_CMD="${COMMIT_CMD}<member>${admin}</member>"
-    done
-    COMMIT_CMD="${COMMIT_CMD}</admin>"
+if [ -n "$COMMIT_ADMIN" ]; then
+    # Partial commit for specific admin user (recommended for automation)
+    COMMIT_CMD="<commit><partial><description>${DESCRIPTION}</description><admin><member>${COMMIT_ADMIN}</member></admin></partial></commit>"
+    log "Committing changes for admin: ${COMMIT_ADMIN}"
+else
+    # Full commit (commits all pending changes from all admins)
+    COMMIT_CMD="<commit><description>${DESCRIPTION}</description></commit>"
+    log "Committing all pending changes (full commit)"
 fi
-
-COMMIT_CMD="${COMMIT_CMD}</commit>"
 
 log "Committing changes to PAN-OS..."
 log "Description: ${DESCRIPTION}"
-if [ -n "$COMMIT_ADMINS" ]; then
-    log "Admins: ${COMMIT_ADMINS}"
-fi
 
 # URL encode the commit command
 COMMIT_CMD_ENCODED=$(echo -n "$COMMIT_CMD" | jq -sRr @uri)
 
-# Execute commit
+# Execute commit using latest PAN-OS XML API
 COMMIT_RESPONSE=$(curl -s $CURL_OPTS -X POST "${BASE_URL}/" \
     -d "type=commit" \
     -d "cmd=${COMMIT_CMD_ENCODED}" \
