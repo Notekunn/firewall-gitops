@@ -41,13 +41,6 @@ warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-ensure_command() {
-    if ! command -v "$1" >/dev/null 2>&1; then
-        error "Required command not found: $1"
-        exit 1
-    fi
-}
-
 normalize_xml() {
     printf '%s' "$1" | tr -d '\n\r'
 }
@@ -157,7 +150,7 @@ if [ -z "$PANOS_API_KEY" ]; then
         exit 1
     fi
 
-    API_KEY_RESPONSE=$(wget -q ${CURL_OPTS} -O - "${BASE_URL}/?type=keygen&user=${PANOS_USERNAME}&password=${PANOS_PASSWORD}")
+    API_KEY_RESPONSE=$(curl -s $CURL_OPTS -X GET "${BASE_URL}/?type=keygen&user=${PANOS_USERNAME}&password=${PANOS_PASSWORD}")
     PANOS_API_KEY=$(echo "$API_KEY_RESPONSE" | grep -oPm1 "(?<=<key>)[^<]+")
 
     if [ -z "$PANOS_API_KEY" ]; then
@@ -171,9 +164,6 @@ fi
 # Build commit command XML using latest PAN-OS API syntax
 # Use partial commit to commit only specific admin's changes
 COMMIT_ADMIN="${COMMIT_ADMIN:-$PANOS_USERNAME}"
-
-# Require external tools
-ensure_command wget
 
 if [ -n "$COMMIT_ADMIN" ]; then
     # Partial commit for specific admin user (recommended for automation)
@@ -192,7 +182,10 @@ log "Description: ${DESCRIPTION}"
 COMMIT_CMD_ENCODED=$(echo -n "$COMMIT_CMD" | jq -sRr @uri)
 
 # Execute commit using latest PAN-OS XML API
-COMMIT_RESPONSE=$(wget -q ${CURL_OPTS} --method=POST --body-data="type=commit&cmd=${COMMIT_CMD_ENCODED}&key=${PANOS_API_KEY}" -O - "${BASE_URL}/")
+COMMIT_RESPONSE=$(curl -s $CURL_OPTS -X POST "${BASE_URL}/" \
+    -d "type=commit" \
+    -d "cmd=${COMMIT_CMD_ENCODED}" \
+    -d "key=${PANOS_API_KEY}")
 
 # Parse commit response
 COMMIT_XML=$(normalize_xml "$COMMIT_RESPONSE")
@@ -223,16 +216,7 @@ SHOULD_MONITOR="false"
 
 case "$RESPONSE_STATUS" in
     success)
-        if [ "$RESPONSE_CODE" = "13" ]; then
-            MESSAGE="${COMMIT_MESSAGE:-No changes detected; commit skipped by PAN-OS}"
-            success "${MESSAGE}"
-            if [ -n "$RESPONSE_CODE_DESC" ]; then
-                log "PAN-OS API code ${RESPONSE_CODE}: ${RESPONSE_CODE_DESC}"
-            elif [ -n "$RESPONSE_CODE" ]; then
-                log "PAN-OS API code: ${RESPONSE_CODE}"
-            fi
-            exit 0
-        elif [ -n "$JOB_ID" ]; then
+        if [ -n "$JOB_ID" ]; then
             if [ -n "$COMMIT_MESSAGE" ]; then
                 success "${COMMIT_MESSAGE}"
             else
@@ -247,6 +231,15 @@ case "$RESPONSE_STATUS" in
             fi
             log "Commit job ID: ${JOB_ID}"
             SHOULD_MONITOR="true"
+        elif [ "$RESPONSE_CODE" = "13" ]; then
+            MESSAGE="${COMMIT_MESSAGE:-No changes detected; commit skipped by PAN-OS}"
+            success "${MESSAGE}"
+            if [ -n "$RESPONSE_CODE_DESC" ]; then
+                log "PAN-OS API code ${RESPONSE_CODE}: ${RESPONSE_CODE_DESC}"
+            elif [ -n "$RESPONSE_CODE" ]; then
+                log "PAN-OS API code: ${RESPONSE_CODE}"
+            fi
+            exit 0
         else
             error "PAN-OS commit response did not include a job ID"
             error "Response: ${COMMIT_RESPONSE}"
@@ -311,7 +304,7 @@ while [ $WAIT_TIME -lt $MAX_WAIT ]; do
     sleep $SLEEP_INTERVAL
     WAIT_TIME=$((WAIT_TIME + SLEEP_INTERVAL))
 
-        JOB_STATUS=$(wget -q ${CURL_OPTS} -O - "${BASE_URL}/?type=op&cmd=<show><jobs><id>${JOB_ID}</id></jobs></show>&key=${PANOS_API_KEY}")
+    JOB_STATUS=$(curl -s $CURL_OPTS -X GET "${BASE_URL}/?type=op&cmd=<show><jobs><id>${JOB_ID}</id></jobs></show>&key=${PANOS_API_KEY}")
     JOB_XML=$(normalize_xml "$JOB_STATUS")
 
     if [ -z "$JOB_XML" ]; then
