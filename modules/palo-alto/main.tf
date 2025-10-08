@@ -101,12 +101,4 @@ resource "null_resource" "auto_commit" {
     services_version  = sha256(jsonencode(var.firewall_services))
     rules_version     = sha256(jsonencode(var.firewall_rules))
   }
-
-  provisioner "local-exec" {
-    command = "bash ${path.module}/scripts/commit.sh"
-    environment = {
-      COMMIT_DESCRIPTION = var.commit_description
-      COMMIT_ADMINS      = join(",", var.commit_admins)
-    }
-  }
 }
