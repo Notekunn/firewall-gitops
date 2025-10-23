@@ -25,43 +25,40 @@ variable "firewall_services" {
 
 variable "firewall_rules" {
   description = "Map of rule groups containing firewall rules"
-  type = map(object({
-    description = optional(string, "")
-    rules = list(object({
-      name                  = string
-      description           = optional(string, "")
-      rule_type             = optional(string, "universal")
-      source_zones          = list(string)
-      destination_zones     = list(string)
-      source_addresses      = list(string)
-      destination_addresses = list(string)
-      applications          = list(string)
-      services              = list(string)
-      source_users          = optional(list(string), [])
-      action                = optional(string, "allow")
-      log_start             = optional(bool, false)
-      log_end               = optional(bool, true)
-      log_setting           = optional(string, null)
-      disabled              = optional(bool, false)
-      schedule              = optional(string, null)
-      tags                  = optional(list(string), [])
-      group_tag             = optional(string, null)
-      negate_source         = optional(bool, false)
-      negate_destination    = optional(bool, false)
+  type = list(object({
+    name                  = string
+    description           = optional(string, "")
+    rule_type             = optional(string, "universal")
+    source_zones          = list(string)
+    destination_zones     = list(string)
+    source_addresses      = list(string)
+    destination_addresses = list(string)
+    applications          = list(string)
+    services              = list(string)
+    source_users          = optional(list(string), [])
+    action                = optional(string, "allow")
+    log_start             = optional(bool, false)
+    log_end               = optional(bool, true)
+    log_setting           = optional(string, null)
+    disabled              = optional(bool, false)
+    schedule              = optional(string, null)
+    tags                  = optional(list(string), [])
+    group_tag             = optional(string, null)
+    negate_source         = optional(bool, false)
+    negate_destination    = optional(bool, false)
 
-      profile_setting = optional(object({
-        group = optional(list(string), [])
-        profiles = optional(object({
-          virus             = optional(list(string), [])
-          spyware           = optional(list(string), [])
-          vulnerability     = optional(list(string), [])
-          url_filtering     = optional(list(string), [])
-          file_blocking     = optional(list(string), [])
-          wildfire_analysis = optional(list(string), [])
-          data_filtering    = optional(list(string), [])
-        }), null)
+    profile_setting = optional(object({
+      group = optional(list(string), [])
+      profiles = optional(object({
+        virus             = optional(list(string), [])
+        spyware           = optional(list(string), [])
+        vulnerability     = optional(list(string), [])
+        url_filtering     = optional(list(string), [])
+        file_blocking     = optional(list(string), [])
+        wildfire_analysis = optional(list(string), [])
+        data_filtering    = optional(list(string), [])
       }), null)
-    }))
+    }), null)
   }))
 }
 
@@ -99,22 +96,4 @@ variable "position" {
     condition     = contains(["after", "before"], var.position.where) ? var.position.pivot != null : true
     error_message = "pivot is required when where is after or before"
   }
-}
-
-variable "auto_commit" {
-  type        = bool
-  default     = true
-  description = "Automatically commit changes to the firewall after applying configuration"
-}
-
-variable "commit_description" {
-  type        = string
-  default     = "Committed by Terraform"
-  description = "Description for the commit operation"
-}
-
-variable "commit_admins" {
-  type        = list(string)
-  default     = []
-  description = "List of admin users whose changes should be committed. Empty list commits all changes."
 }
