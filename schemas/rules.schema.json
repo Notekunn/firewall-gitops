@@ -5,30 +5,29 @@
 	"description": "Schema for firewall rules configuration files in the Firewall GitOps project",
 	"type": "object",
 	"additionalProperties": false,
+	"anyOf": [{ "required": ["addresses"] }, { "required": ["services"] }, { "required": ["rules"] }],
 	"properties": {
 		"addresses": {
 			"type": "array",
-			"description": "List of address objects to create",
+			"description": "List of address objects to create (optional)",
 			"items": {
 				"$ref": "#/definitions/address"
 			}
 		},
 		"services": {
 			"type": "array",
-			"description": "List of service objects to create",
+			"description": "List of service objects to create (optional)",
 			"items": {
 				"$ref": "#/definitions/service"
 			}
 		},
 		"rules": {
-			"type": "object",
-			"description": "Map of rule groups containing firewall rules",
-			"patternProperties": {
-				"^[a-zA-Z0-9-_]+$": {
-					"$ref": "#/definitions/rule_group"
-				}
+			"type": "array",
+			"description": "List of firewall rules (optional)",
+			"items": {
+				"$ref": "#/definitions/security_rule"
 			},
-			"additionalProperties": false
+			"minItems": 1
 		}
 	},
 	"definitions": {

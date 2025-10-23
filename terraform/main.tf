@@ -13,13 +13,41 @@ locals {
   # Get cluster name from environment variable or directory structure
   cluster_name = var.cluster_name != "" ? var.cluster_name : basename(abspath(path.module))
 
+  # Path to cluster directory
+  cluster_dir = "${path.module}/../clusters/${local.cluster_name}"
+
   # Read cluster configuration
-  cluster_config_raw = file("${path.module}/../clusters/${local.cluster_name}/cluster.yaml")
+  cluster_config_raw = file("${local.cluster_dir}/cluster.yaml")
   cluster_config     = yamldecode(local.cluster_config_raw)
 
-  # Read firewall rules configuration
-  firewall_rules_raw = file("${path.module}/../clusters/${local.cluster_name}/rules.yaml")
-  firewall_rules     = yamldecode(local.firewall_rules_raw)
+  # Check if using single file or multiple files in objects/ folder
+  has_single_objects_file = fileexists("${local.cluster_dir}/objects.yaml")
+  has_objects_folder      = try(length(fileset("${local.cluster_dir}/objects", "*.yaml")) > 0, false)
+
+  # Read configuration from single file or multiple files
+  # Single file mode (backward compatible)
+  single_file_data = local.has_single_objects_file ? yamldecode(file("${local.cluster_dir}/objects.yaml")) : yamldecode("{}")
+
+  # Multiple files mode - read all YAML files from objects/ folder
+  objects_files = local.has_objects_folder ? fileset("${local.cluster_dir}/objects", "*.yaml") : []
+  objects_data_list = [
+    for f in local.objects_files : yamldecode(file("${local.cluster_dir}/objects/${f}"))
+  ]
+
+  # Merge addresses from all files
+  addresses_from_single = try(local.single_file_data.addresses, [])
+  addresses_from_multi  = flatten([for data in local.objects_data_list : try(data.addresses, [])])
+  firewall_addresses    = concat(local.addresses_from_single, local.addresses_from_multi)
+
+  # Merge services from all files
+  services_from_single = try(local.single_file_data.services, [])
+  services_from_multi  = flatten([for data in local.objects_data_list : try(data.services, [])])
+  firewall_services    = concat(local.services_from_single, local.services_from_multi)
+
+  # Merge rules from all files (rules are maps, so we need to merge them)
+  rules_from_single = try(local.single_file_data.rules, [])
+  rules_from_multi  = flatten([for data in local.objects_data_list : try(data.rules, [])])
+  firewall_rules    = concat(local.rules_from_single, local.rules_from_multi)
 
   # Extract firewall configuration
   firewall_config = local.cluster_config.firewall
@@ -58,9 +86,9 @@ module "palo_alto_firewall" {
 
   source = "../modules/palo-alto"
 
-  firewall_rules     = try(local.firewall_rules.rules, {})
-  firewall_addresses = try(local.firewall_rules.addresses, [])
-  firewall_services  = try(local.firewall_rules.services, [])
+  firewall_rules     = local.firewall_rules
+  firewall_addresses = local.firewall_addresses
+  firewall_services  = local.firewall_services
   position           = local.position_config
   location           = local.location_config
   auto_commit        = try(local.cluster_config.auto_commit.enabled, true)
@@ -75,3 +103,13 @@ module "palo_alto_firewall" {
 #   source = "../modules/fortinet"
 #   # ... configuration
 # }
+
+output "rules" {
+  value = local.firewall_rules
+}
+output "addresses" {
+  value = local.firewall_addresses
+}
+output "services" {
+  value = local.firewall_services
+}

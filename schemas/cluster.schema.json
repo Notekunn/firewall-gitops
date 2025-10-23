@@ -47,7 +47,7 @@
 				"type": {
 					"type": "string",
 					"description": "Firewall vendor type",
-					"enum": ["palo-alto", "fortinet"],
+					"enum": ["palo-alto", "fortinet", "checkpoint"],
 					"examples": ["palo-alto"]
 				},
 				"panorama": {

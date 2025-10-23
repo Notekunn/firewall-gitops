@@ -24,7 +24,12 @@ firewall-gitops/
 ├── clusters/                    # Cluster-specific configurations
 │   └── example/
 │       ├── cluster.yaml         # Cluster metadata and firewall settings
-│       └── rules.yaml           # Firewall rules and address/service objects
+│       ├── objects.yaml           # Single file with all objects/addresses/services (Option 1)
+│       └── objects/               # OR multiple split files (Option 2)
+│           ├── addresses.yaml   # Address objects only
+│           ├── services.yaml    # Service objects only
+│           ├── trust-zone.yaml  # Rules for trust zone
+│           └── dmz-zone.yaml    # Rules and zone-specific objects
 ├── modules/                     # Terraform modules
 │   ├── palo-alto/              # Palo Alto Networks module
 │   │   ├── main.tf
@@ -60,7 +65,7 @@ cp clusters/example/* clusters/my-cluster/
 
 # Edit configurations for your environment
 vim clusters/my-cluster/cluster.yaml
-vim clusters/my-cluster/rules.yaml
+vim clusters/my-cluster/objects.yaml
 ```
 
 ### 2. Configure GitLab Access
@@ -126,10 +131,41 @@ python scripts/validate_yaml.py
 
 ## 🔧 Configuration Examples
 
-### Complete Rules Configuration
+### Configuration Options
+
+You have two options for organizing your firewall configurations:
+
+#### Option 1: Single File (Traditional)
+All addresses, services, and rules in one file:
+```
+clusters/my-cluster/
+├── cluster.yaml
+└── objects.yaml    # Contains addresses, services, and rules
+```
+
+#### Option 2: Multiple Files (Recommended for larger configurations)
+Split configurations across multiple files in a `objects/` folder:
+```
+clusters/my-cluster/
+├── cluster.yaml
+└── objects/
+    ├── addresses.yaml      # Just addresses
+    ├── services.yaml       # Just services
+    ├── trust-zone.yaml     # Rules for trust zone
+    └── dmz-zone.yaml       # Rules and zone-specific objects
+```
+
+**Benefits of split configuration:**
+- Better organization for large rule sets
+- Easier collaboration (fewer merge conflicts)
+- Zone-based or team-based file separation
+- Each file can contain any combination of addresses, services, and rules
+- Terraform automatically merges all files during deployment
+
+### Complete Rules Configuration (Single File)
 
 ```yaml
-# clusters/my-cluster/rules.yaml
+# clusters/my-cluster/objects.yaml
 addresses:
   - name: 'web-server'
     ip_netmask: '192.168.1.100/32'
@@ -155,30 +191,102 @@ services:
     tags: ['web', 'https']
 
 rules:
-  web_access:
-    description: 'Allow web access rules'
-    rules:
-      - name: 'allow-web-traffic'
-        description: 'Allow HTTP traffic to web server'
-        source_zones: ['trust']
-        destination_zones: ['dmz']
-        source_addresses: ['any']
-        destination_addresses: ['web-server']
-        applications: ['web-browsing']
-        services: ['web-service']
-        action: 'allow'
-        log_end: true
-      - name: 'allow-https-traffic'
-        description: 'Allow HTTPS traffic to web server'
-        source_zones: ['trust']
-        destination_zones: ['dmz']
-        source_addresses: ['any']
-        destination_addresses: ['web-server']
-        applications: ['ssl']
-        services: ['https-service']
-        action: 'allow'
-        log_end: true
+  - name: 'allow-web-traffic'
+    description: 'Allow HTTP traffic to web server'
+    source_zones: ['trust']
+    destination_zones: ['dmz']
+    source_addresses: ['any']
+    destination_addresses: ['web-server']
+    applications: ['web-browsing']
+    services: ['web-service']
+    action: 'allow'
+    log_end: true
+  - name: 'allow-https-traffic'
+    description: 'Allow HTTPS traffic to web server'
+    source_zones: ['trust']
+    destination_zones: ['dmz']
+    source_addresses: ['any']
+    destination_addresses: ['web-server']
+    applications: ['ssl']
+    services: ['https-service']
+    action: 'allow'
+    log_end: true
 ```
+
+### Split Configuration Examples (Multiple Files)
+
+When using the `objects/` folder approach, each file can contain addresses, services, or rules independently:
+
+```yaml
+# clusters/my-cluster/objects/addresses.yaml
+# This file contains ONLY address objects
+addresses:
+  - name: 'web-server'
+    ip_netmask: '192.168.1.100/32'
+    description: 'Web server address'
+    tags: ['web', 'server']
+  - name: 'db-server'
+    ip_netmask: '192.168.2.50/32'
+    description: 'Database server'
+    tags: ['database', 'server']
+```
+
+```yaml
+# clusters/my-cluster/objects/services.yaml
+# This file contains ONLY service objects
+services:
+  - name: 'web-service'
+    type: 'tcp'
+    destination_port: '80'
+    source_port: '1024-65535'
+    description: 'Web service HTTP'
+    tags: ['web', 'http']
+```
+
+```yaml
+# clusters/my-cluster/objects/trust-zone.yaml
+# This file contains ONLY rules
+rules:
+  - name: 'allow-web-traffic'
+    source_zones: ['trust']
+    destination_zones: ['dmz']
+    source_addresses: ['any']
+    destination_addresses: ['web-server']
+    applications: ['web-browsing']
+    services: ['web-service']
+    action: 'allow'
+    log_end: true
+```
+
+```yaml
+# clusters/my-cluster/objects/dmz-zone.yaml
+# This file contains addresses, services, AND rules together
+addresses:
+  - name: 'dmz-proxy'
+    ip_netmask: '10.0.1.10/32'
+    description: 'DMZ proxy server'
+
+services:
+  - name: 'proxy-service'
+    type: 'tcp'
+    destination_port: '8080'
+    source_port: '1024-65535'
+
+rules:
+  - name: 'allow-dmz-internet'
+    source_zones: ['dmz']
+    destination_zones: ['untrust']
+    source_addresses: ['dmz-proxy']
+    destination_addresses: ['any']
+    applications: ['web-browsing']
+    services: ['application-default']
+    action: 'allow'
+```
+
+**Note:** Terraform will automatically merge all YAML files from the `objects/` folder:
+- All addresses from all files are combined into one list
+- All services from all files are combined into one list
+- All rule groups from all files are merged together
 
 ### Address Object Types
 

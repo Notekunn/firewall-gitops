@@ -1,0 +1,38 @@
+# Trust zone firewall rules
+# This file contains rules for the trust zone
+
+rules:
+  - name: 'allow-web-traffic'
+    description: 'Allow HTTP/HTTPS traffic to web servers'
+    source_zones: ['trust']
+    destination_zones: ['dmz']
+    source_addresses: ['any']
+    destination_addresses: ['web-server']
+    applications: ['web-browsing', 'ssl']
+    services:
+      - 'web-service'
+      - 'web-service-ssl'
+    action: 'allow'
+    log_end: true
+  - name: 'allow-db-traffic'
+    description: 'Allow MySQL traffic to database servers'
+    source_zones: ['trust']
+    destination_zones: ['dmz']
+    source_addresses: ['app-servers']
+    destination_addresses: ['db-server']
+    applications: ['mysql']
+    services:
+      - 'db-service'
+    action: 'allow'
+    log_end: true
+  - name: 'allow-db-traffic'
+    description: 'Allow MySQL traffic to database servers'
+    source_zones: ['trust']
+    destination_zones: ['dmz']
+    source_addresses: ['app-servers']
+    destination_addresses: ['db-server']
+    applications: ['mysql']
+    services:
+      - 'db-service'
+    action: 'allow'
+    log_end: true

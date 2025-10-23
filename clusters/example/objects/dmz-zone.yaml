@@ -1,0 +1,32 @@
+# DMZ zone firewall rules and objects
+# This file contains rules AND addresses specific to DMZ zone
+
+addresses:
+  - name: 'dmz-proxy'
+    ip_netmask: '10.0.1.10/32'
+    description: 'DMZ proxy server'
+    tags: ['dmz', 'proxy']
+  - name: 'dmz-proxy'
+    ip_netmask: '10.0.1.10/32'
+    description: 'DMZ proxy server'
+    tags: ['dmz', 'proxy']
+
+services:
+  - name: 'proxy-service'
+    type: 'tcp'
+    destination_port: '8080'
+    source_port: '1024-65535'
+    description: 'Proxy service'
+    tags: ['proxy']
+
+rules:
+  - name: 'allow-dmz-internet'
+    description: 'Allow DMZ to access internet via proxy'
+    source_zones: ['dmz']
+    destination_zones: ['untrust']
+    source_addresses: ['dmz-proxy']
+    destination_addresses: ['any']
+    applications: ['web-browsing', 'ssl']
+    services: ['application-default']
+    action: 'allow'
+    log_end: true

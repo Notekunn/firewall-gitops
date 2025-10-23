@@ -48,57 +48,38 @@ resource "panos_security_policy_rules" "firewall_rules" {
   location   = local.location
   position   = var.position
   depends_on = [panos_addresses.address_objects, panos_service.service_objects]
-  rules = flatten([
-    for group_key, group in var.firewall_rules : [
-      for rule in group.rules : {
-        name                  = rule.name
-        description           = rule.description
-        rule_type             = rule.rule_type
-        tag                   = rule.tags
-        group_tag             = rule.group_tag
-        negate_source         = rule.negate_source
-        negate_destination    = rule.negate_destination
-        disabled              = rule.disabled
-        action                = rule.action
-        source_zones          = rule.source_zones
-        destination_zones     = rule.destination_zones
-        source_addresses      = rule.source_addresses
-        destination_addresses = rule.destination_addresses
-        applications          = rule.applications
-        services              = rule.services
-        log_start             = rule.log_start
-        log_end               = rule.log_end
-        profile_setting = rule.profile_setting != null ? {
-          group = rule.profile_setting.group
-          profiles = rule.profile_setting.profiles != null ? {
-            virus             = rule.profile_setting.profiles.virus
-            spyware           = rule.profile_setting.profiles.spyware
-            vulnerability     = rule.profile_setting.profiles.vulnerability
-            url_filtering     = rule.profile_setting.profiles.url_filtering
-            file_blocking     = rule.profile_setting.profiles.file_blocking
-            wildfire_analysis = rule.profile_setting.profiles.wildfire_analysis
-            data_filtering    = rule.profile_setting.profiles.data_filtering
-          } : null
+  rules = [
+    for rule in var.firewall_rules : {
+      name                  = rule.name
+      description           = rule.description
+      rule_type             = rule.rule_type
+      tag                   = rule.tags
+      group_tag             = rule.group_tag
+      negate_source         = rule.negate_source
+      negate_destination    = rule.negate_destination
+      disabled              = rule.disabled
+      action                = rule.action
+      source_zones          = rule.source_zones
+      destination_zones     = rule.destination_zones
+      source_addresses      = rule.source_addresses
+      destination_addresses = rule.destination_addresses
+      applications          = rule.applications
+      services              = rule.services
+      log_start             = rule.log_start
+      log_end               = rule.log_end
+      profile_setting = rule.profile_setting != null ? {
+        group = rule.profile_setting.group
+        profiles = rule.profile_setting.profiles != null ? {
+          virus             = rule.profile_setting.profiles.virus
+          spyware           = rule.profile_setting.profiles.spyware
+          vulnerability     = rule.profile_setting.profiles.vulnerability
+          url_filtering     = rule.profile_setting.profiles.url_filtering
+          file_blocking     = rule.profile_setting.profiles.file_blocking
+          wildfire_analysis = rule.profile_setting.profiles.wildfire_analysis
+          data_filtering    = rule.profile_setting.profiles.data_filtering
         } : null
-      }
-    ]
-  ])
-}
-
-# Auto-commit changes to the firewall using null_resource
-resource "null_resource" "auto_commit" {
-  count = var.auto_commit ? 1 : 0
-
-  depends_on = [
-    panos_addresses.address_objects,
-    panos_service.service_objects,
-    panos_security_policy_rules.firewall_rules
+      } : null
+    }
   ]
-
-  # Trigger on any changes to firewall resources
-  triggers = {
-    addresses_version = sha256(jsonencode(var.firewall_addresses))
-    services_version  = sha256(jsonencode(var.firewall_services))
-    rules_version     = sha256(jsonencode(var.firewall_rules))
-  }
 }
+

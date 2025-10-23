@@ -1,0 +1,18 @@
+# Address objects configuration
+# This file contains only addresses
+
+addresses:
+  - name: 'web-server'
+    ip_netmask: '192.168.1.100/32'
+    description: 'Web server address'
+    tags: ['web', 'server']
+
+  - name: 'db-server'
+    ip_netmask: '192.168.2.50/32'
+    description: 'Database server address'
+    tags: ['database', 'server']
+
+  - name: 'app-servers'
+    ip_range: '192.168.3.10-192.168.3.20'
+    description: 'Application server range'
+    tags: ['app', 'server']

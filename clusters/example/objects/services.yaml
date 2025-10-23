@@ -1,0 +1,24 @@
+# Service objects configuration
+# This file contains only services
+
+services:
+  - name: 'web-service'
+    type: 'tcp'
+    destination_port: '80'
+    source_port: '1024-65535'
+    description: 'Web service HTTP'
+    tags: ['web', 'http']
+
+  - name: 'web-service-ssl'
+    type: 'tcp'
+    destination_port: '443'
+    source_port: '1024-65535'
+    description: 'Web service HTTPS'
+    tags: ['web', 'https']
+
+  - name: 'db-service'
+    type: 'tcp'
+    destination_port: '3306'
+    source_port: '1024-65535'
+    description: 'MySQL database service'
+    tags: ['database', 'mysql']

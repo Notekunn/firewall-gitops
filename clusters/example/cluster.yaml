@@ -4,7 +4,7 @@ cluster:
   environment: development
 
 firewall:
-  type: palo-alto
+  type: checkpoint
 
   # Standalone firewall configuration for example
   # https://registry.terraform.io/providers/PaloAltoNetworks/panos/latest/docs/guides/location
