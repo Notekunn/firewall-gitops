@@ -125,6 +125,11 @@
 							}
 						}
 					}
+				},
+				"log_setting": {
+					"type": "string",
+					"description": "Global log setting for the firewall",
+					"default": ""
 				}
 			},
 			"oneOf": [

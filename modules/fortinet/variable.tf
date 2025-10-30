@@ -97,11 +97,3 @@ variable "position" {
     error_message = "pivot is required when where is after or before"
   }
 }
-
-variable "global" {
-  type = object({
-    log_setting = optional(string, null)
-  })
-  nullable = true
-  default  = {}
-}

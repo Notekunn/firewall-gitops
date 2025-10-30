@@ -91,16 +91,22 @@ module "palo_alto_firewall" {
   firewall_services  = local.firewall_services
   position           = local.position_config
   location           = local.location_config
+  global = {
+    log_setting = try(local.cluster_config.log_setting, null)
+  }
 }
 
-# Future: Fortinet module (placeholder)
-# module "fortinet_firewall" {
-#   count = local.firewall_config.type == "fortinet" ? 1 : 0
-#   
-#   source = "../modules/fortinet"
-#   # ... configuration
-# }
+module "fortinet_firewall" {
+  count = local.firewall_config.type == "fortinet" ? 1 : 0
 
+  source = "../modules/fortinet"
+
+  firewall_rules     = local.firewall_rules
+  firewall_addresses = local.firewall_addresses
+  firewall_services  = local.firewall_services
+  position           = local.position_config
+  location           = local.location_config
+}
 output "rules" {
   value = local.firewall_rules
 }

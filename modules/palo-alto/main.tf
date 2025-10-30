@@ -2,11 +2,7 @@ terraform {
   required_providers {
     panos = {
       source  = "paloaltonetworks/panos"
-      version = "~> 2.0.5"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.0"
+      version = ">= 2.0.5"
     }
   }
 }
@@ -67,6 +63,7 @@ resource "panos_security_policy_rules" "firewall_rules" {
       services              = rule.services
       log_start             = rule.log_start
       log_end               = rule.log_end
+      log_setting           = try(var.global.log_setting, null)
       profile_setting = rule.profile_setting != null ? {
         group = rule.profile_setting.group
         profiles = rule.profile_setting.profiles != null ? {
