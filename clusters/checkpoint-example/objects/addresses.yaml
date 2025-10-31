@@ -1,0 +1,33 @@
+# CheckPoint Address Objects
+# Addresses can be single hosts (/32), networks, or FQDNs
+
+addresses:
+  # Host object (single IP)
+  - name: 'web-server-01'
+    ip_netmask: '192.168.1.100/32'
+    description: 'Production web server'
+    tags: ['web', 'production']
+
+  # Host object (without CIDR)
+  - name: 'db-server-01'
+    ip_netmask: '192.168.2.50'
+    description: 'Database server'
+    tags: ['database', 'backend']
+
+  # Network object (subnet)
+  - name: 'internal-network'
+    ip_netmask: '10.0.0.0/8'
+    description: 'Internal corporate network'
+    tags: ['internal']
+
+  # Network object (DMZ)
+  - name: 'dmz-network'
+    ip_netmask: '172.16.0.0/24'
+    description: 'DMZ network segment'
+    tags: ['dmz']
+
+  # FQDN object
+  - name: 'api-gateway'
+    fqdn: 'api.example.com'
+    description: 'API Gateway hostname'
+    tags: ['api', 'external']

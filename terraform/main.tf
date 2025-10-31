@@ -4,6 +4,10 @@ terraform {
       source  = "paloaltonetworks/panos"
       version = "~> 2.0.5"
     }
+    checkpoint = {
+      source  = "CheckPointSW/checkpoint"
+      version = "~> 2.11.0"
+    }
   }
   backend "http" {}
 }
@@ -70,6 +74,11 @@ locals {
   location_config = merge(local.standalone_config != null ? { vsys = local.standalone_config } : {},
   local.panorama_config != null ? { panorama = local.panorama_config } : {})
 
+  # CheckPoint domain configuration
+  checkpoint_location_config = {
+    domain = try(local.firewall_config.checkpoint.domain, null)
+  }
+
   # Position configuration
   position_config = {
     where    = try(local.cluster_config.position.where, "last")
@@ -80,6 +89,9 @@ locals {
 
 # Configure the PAN-OS provider
 provider "panos" {}
+
+# Configure the CheckPoint provider
+provider "checkpoint" {}
 
 module "palo_alto_firewall" {
   count = local.firewall_config.type == "palo-alto" ? 1 : 0
@@ -106,6 +118,31 @@ module "fortinet_firewall" {
   firewall_services  = local.firewall_services
   position           = local.position_config
   location           = local.location_config
+}
+
+module "checkpoint_firewall" {
+  count = local.firewall_config.type == "checkpoint" ? 1 : 0
+
+  source = "../modules/checkpoint"
+
+  firewall_rules     = local.firewall_rules
+  firewall_addresses = local.firewall_addresses
+  firewall_services  = local.firewall_services
+  position           = local.position_config
+  location           = local.checkpoint_location_config
+  global = {
+    layer_name   = try(local.cluster_config.checkpoint.layer_name, "Network")
+    auto_publish = try(local.cluster_config.checkpoint.auto_publish, true)
+    install_on   = try(local.cluster_config.checkpoint.install_on, ["Policy Targets"])
+    track_type   = try(local.cluster_config.checkpoint.track_type, "Log")
+    track_settings = try(local.cluster_config.checkpoint.track_settings, {
+      accounting              = false
+      alert                   = "none"
+      enable_firewall_session = false
+      per_connection          = true
+      per_session             = false
+    })
+  }
 }
 output "rules" {
   value = local.firewall_rules

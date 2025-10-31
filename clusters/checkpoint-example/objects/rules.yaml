@@ -1,0 +1,71 @@
+# CheckPoint Access Rules
+# Rules define the security policy for traffic filtering
+
+rules:
+  # Allow web traffic to web server
+  - name: 'allow-http-to-web'
+    description: 'Allow HTTP traffic to web server from internal network'
+    source_addresses:
+      - 'internal-network'
+    destination_addresses:
+      - 'web-server-01'
+    services:
+      - 'http-custom'
+    action: 'Accept'
+    log_end: true
+    log_start: false
+    disabled: false
+    vpn: 'Any'
+    tags: ['web-access']
+
+  # Allow HTTPS traffic
+  - name: 'allow-https-to-web'
+    description: 'Allow HTTPS traffic to web server'
+    source_addresses:
+      - 'Any'
+    destination_addresses:
+      - 'web-server-01'
+    services:
+      - 'https-custom'
+    action: 'Accept'
+    log_end: true
+    tags: ['web-access', 'secure']
+
+  # Allow database access from web server
+  - name: 'allow-db-from-web'
+    description: 'Allow database connections from web server to DB server'
+    source_addresses:
+      - 'web-server-01'
+    destination_addresses:
+      - 'db-server-01'
+    services:
+      - 'mysql-service'
+    action: 'Accept'
+    log_end: true
+    tags: ['database-access']
+
+  # Block example
+  - name: 'block-dmz-to-internal'
+    description: 'Block traffic from DMZ to internal network'
+    source_addresses:
+      - 'dmz-network'
+    destination_addresses:
+      - 'internal-network'
+    services:
+      - 'Any'
+    action: 'Drop'
+    log_end: true
+    tags: ['security', 'deny']
+
+  # Allow DNS
+  - name: 'allow-dns'
+    description: 'Allow DNS queries'
+    source_addresses:
+      - 'Any'
+    destination_addresses:
+      - 'Any'
+    services:
+      - 'dns-service'
+    action: 'Accept'
+    log_end: false
+    tags: ['infrastructure']

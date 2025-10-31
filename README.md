@@ -14,8 +14,8 @@ This project provides a GitOps approach to managing firewall configurations usin
 ## 🔥 Supported Firewalls
 
 - ✅ **Palo Alto Networks (PAN-OS)** - Full support for Panorama and standalone NGFW
+- ✅ **Check Point** - Full support for Management Server with policy layers and automatic publishing
 - 🚧 **Fortinet** (planned for future release)
-- 🚧 **Check Point** (planned for future release)
 
 ## 📁 Project Structure
 
@@ -128,6 +128,7 @@ python scripts/validate_yaml.py
 
 ### Provider Versions
 - `paloaltonetworks/panos` >= 2.0.5
+- `CheckPointSW/checkpoint` >= 2.11.0
 
 ## 🔧 Configuration Examples
 
@@ -410,6 +411,28 @@ The CI/CD pipeline requires the following environment variables for PAN-OS conne
 - `PANOS_PORT` - Port number (default: `443`)
 - `PANOS_TIMEOUT` - Connection timeout in seconds (default: `10`)
 - `PANOS_SKIP_VERIFY_CERTIFICATE` - Skip SSL verification (default: `true`)
+
+### Check Point Provider Configuration
+
+The CI/CD pipeline requires the following environment variables for Check Point Management Server connectivity:
+
+**Required Variables:**
+- `CHECKPOINT_SERVER` - Management Server hostname/IP
+- `CHECKPOINT_USERNAME` - Username for authentication
+- `CHECKPOINT_PASSWORD` - Password for authentication
+- `CHECKPOINT_CONTEXT` - Management domain context (use `web_api` for default)
+
+**Optional Variables:**
+- `CHECKPOINT_PORT` - Port number (default: `443`)
+- `CHECKPOINT_TIMEOUT` - Connection timeout in seconds (default: `120`)
+- `CHECKPOINT_SESSION_NAME` - Session name for API calls
+- `CHECKPOINT_SESSION_TIMEOUT` - Session timeout in seconds (default: `600`)
+
+**CheckPoint Cluster Configuration:**
+- `layer_name`: Access layer name (default: "Network")
+- `auto_publish`: Automatically publish changes after apply (default: `true`)
+- `install_on`: List of gateways to install policy on (default: `["Policy Targets"]`)
+- `domain`: Management domain name (optional, for Multi-Domain Security Management)
 
 ## 🤝 Contributing
 

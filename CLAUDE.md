@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Firewall GitOps: A YAML-to-Terraform automation system for managing Palo Alto Networks firewall configurations. Network engineers write YAML files defining firewall rules, addresses, and services, which are automatically transformed into Terraform resources and deployed via GitLab CI/CD.
+Firewall GitOps: A YAML-to-Terraform automation system for managing firewall configurations across multiple vendors. Network engineers write YAML files defining firewall rules, addresses, and services, which are automatically transformed into Terraform resources and deployed via GitLab CI/CD.
+
+**Supported Firewalls:**
+- Palo Alto Networks (PAN-OS) - Panorama and standalone NGFW
+- Check Point - Management Server with policy layers
+- Fortinet - Planned for future release
 
 ## Core Architecture
 
@@ -117,6 +122,9 @@ terraform/main.tf              # YAML parsing, merging, module invocation
 modules/palo-alto/
 ├── main.tf                    # PAN-OS provider resources
 └── variables.tf               # Variable definitions (source for schema generation)
+modules/checkpoint/
+├── main.tf                    # CheckPoint provider resources
+└── variables.tf               # Variable definitions
 modules/fortinet/              # Planned future support
 ```
 
@@ -168,20 +176,58 @@ From AGENTS.md:
 - Link GitLab issues when relevant
 - Include Terraform plan snippets in merge request descriptions
 
+## Firewall-Specific Implementation Details
+
+### Palo Alto Networks (PAN-OS)
+
+**Location Context:**
+Determined from `cluster.yaml` firewall configuration:
+- **Panorama mode**: Requires `device_group`, optional `panorama_device` (default: "localhost.localdomain") and `rulebase` (default: "pre-rulebase")
+- **Standalone mode**: Requires `ngfw_device` (default: "localhost.localdomain") and `vsys_name` (default: "vsys1")
+
+**Resource Types:**
+- `panos_addresses`: Unified address objects supporting ip_netmask, ip_range, ip_wildcard, fqdn
+- `panos_service`: TCP/UDP service objects
+- `panos_security_policy_rules`: Firewall rules with security profiles
+
+**Provider Configuration:**
+Environment variables: `PANOS_HOSTNAME`, `PANOS_USERNAME`, `PANOS_PASSWORD` (or `PANOS_API_KEY`)
+
+### Check Point
+
+**Location Context:**
+- **Domain**: Optional management domain for Multi-Domain Security Management (MDSM)
+- **Layer**: Access policy layer (default: "Network")
+
+**Resource Types:**
+- `checkpoint_management_host`: Single IP addresses (/32) and FQDNs
+- `checkpoint_management_network`: Network subnets (anything except /32)
+- `checkpoint_management_service_tcp`: TCP service objects
+- `checkpoint_management_service_udp`: UDP service objects
+- `checkpoint_management_access_rule`: Firewall rules
+- `checkpoint_management_publish`: Publishes changes to the management database
+
+**Key Differences from PAN-OS:**
+1. Separate host and network resources (module automatically classifies based on CIDR)
+2. Requires explicit publish after changes (controlled by `auto_publish` setting)
+3. Uses "layers" for policy organization
+4. Rule positioning uses "top", "bottom", "above", "below" (vs PAN-OS "first", "last", "after", "before")
+
+**Provider Configuration:**
+Environment variables: `CHECKPOINT_SERVER`, `CHECKPOINT_USERNAME`, `CHECKPOINT_PASSWORD`, `CHECKPOINT_CONTEXT`
+
+**Auto-Publish:**
+The CheckPoint module includes automatic change publishing when `auto_publish: true` (default). The publish resource triggers on any changes to hosts, networks, services, or rules.
+
 ## Key Implementation Details
 
 ### Positioning Configuration
 
-Rules are positioned relative to existing firewall rules (`terraform/main.tf:74-78`):
-- `where`: "before", "after", "top", "bottom", "last" (default)
-- `pivot`: Reference rule name (required for before/after)
+Rules are positioned relative to existing firewall rules (`terraform/main.tf:83-87`):
+- PAN-OS: `where` values - "first", "last", "after", "before"
+- CheckPoint: `where` values - "top", "bottom", "above", "below"
+- `pivot`: Reference rule name (required for positional placement)
 - `directly`: Boolean for exact vs. generic placement
-
-### Location Context
-
-Determined from `cluster.yaml` firewall configuration:
-- **Panorama mode**: Requires `device_group`, optional `panorama_device` (default: "localhost.localdomain") and `rulebase` (default: "pre-rulebase")
-- **Standalone mode**: Requires `ngfw_device` (default: "localhost.localdomain") and `vsys_name` (default: "vsys1")
 
 ### Resource Dependencies
 
@@ -222,11 +268,24 @@ terraform console
 
 Check outputs in `terraform/main.tf:110-118` to verify merged results.
 
+## Provider Configurations
+
+### PAN-OS Provider
+Configuration in `terraform/main.tf:91`. Environment variables:
+- `PANOS_HOSTNAME`, `PANOS_USERNAME`, `PANOS_PASSWORD` (or `PANOS_API_KEY`)
+- `PANOS_SKIP_VERIFY_CERTIFICATE`: Default `true`
+
+### CheckPoint Provider
+Configuration in `terraform/main.tf:94`. Environment variables:
+- `CHECKPOINT_SERVER`, `CHECKPOINT_USERNAME`, `CHECKPOINT_PASSWORD`
+- `CHECKPOINT_CONTEXT`: Management domain context (use `web_api` for default)
+- `CHECKPOINT_TIMEOUT`: Connection timeout (default: 120 seconds)
+
 ## Security Requirements
 
 From AGENTS.md:
 
 - **Never commit**: API keys, passwords, tokens, certificates
-- **Environment variables**: `GITLAB_TOKEN`, `PANOS_API_KEY`, `PANOS_PASSWORD`
+- **Environment variables**: `GITLAB_TOKEN`, `PANOS_API_KEY`, `PANOS_PASSWORD`, `CHECKPOINT_PASSWORD`
 - **GitLab CI/CD**: Store secrets in project CI/CD variables
 - **PAN-OS Partial Commits**: `scripts/commit.sh` uses per-admin partial commits to avoid overwriting other administrators' configurations
