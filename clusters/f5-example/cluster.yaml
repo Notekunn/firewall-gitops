@@ -1,0 +1,11 @@
+cluster:
+  name: 'f5-example'
+  environment: development
+
+firewall:
+  type: f5-waf
+  f5:
+    partition: 'Common'
+    irule_name: 'gitops_ip_filter'
+  auto_commit:
+    enabled: false

@@ -47,8 +47,8 @@
 				"type": {
 					"type": "string",
 					"description": "Firewall vendor type",
-					"enum": ["palo-alto", "fortinet", "checkpoint"],
-					"examples": ["palo-alto"]
+					"enum": ["palo-alto", "fortinet", "checkpoint", "f5-waf"],
+					"examples": ["palo-alto", "f5-waf"]
 				},
 				"panorama": {
 					"type": "object",
@@ -130,16 +130,48 @@
 					"type": "string",
 					"description": "Global log setting for the firewall",
 					"default": ""
+				},
+				"f5": {
+					"type": "object",
+					"description": "F5 BIG-IP WAF configuration",
+					"additionalProperties": false,
+					"properties": {
+						"partition": {
+							"type": "string",
+							"description": "F5 partition name",
+							"default": "Common",
+							"minLength": 1,
+							"maxLength": 64
+						},
+						"irule_name": {
+							"type": "string",
+							"description": "Name for the IP filter iRule",
+							"default": "gitops_ip_filter",
+							"minLength": 1,
+							"maxLength": 64
+						}
+					}
 				}
 			},
-			"oneOf": [
+			"allOf": [
 				{
-					"required": ["panorama"],
-					"not": { "required": ["standalone"] }
+					"if": {
+						"properties": { "type": { "const": "palo-alto" } }
+					},
+					"then": {
+						"oneOf": [
+							{ "required": ["panorama"] },
+							{ "required": ["standalone"] }
+						]
+					}
 				},
 				{
-					"required": ["standalone"],
-					"not": { "required": ["panorama"] }
+					"if": {
+						"properties": { "type": { "const": "f5-waf" } }
+					},
+					"then": {
+						"required": ["f5"]
+					}
 				}
 			]
 		},

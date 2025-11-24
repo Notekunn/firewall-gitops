@@ -8,6 +8,10 @@ terraform {
       source  = "CheckPointSW/checkpoint"
       version = "~> 2.11.0"
     }
+    bigip = {
+      source  = "F5Networks/bigip"
+      version = "~> 1.24.0"
+    }
   }
   backend "http" {}
 }
@@ -79,6 +83,23 @@ locals {
     domain = try(local.firewall_config.checkpoint.domain, null)
   }
 
+  # F5 WAF configuration
+  f5_location_config = {
+    partition = try(local.firewall_config.f5.partition, "Common")
+  }
+
+  f5_global_config = {
+    irule_name = try(local.firewall_config.f5.irule_name, "gitops_ip_filter")
+  }
+
+  # F5 IP lists from single file or multiple files
+  ip_lists_from_single = try(local.single_file_data.ip_lists, {})
+  ip_lists_from_multi = try(
+    merge([for data in local.objects_data_list : try(data.ip_lists, {})]...),
+    {}
+  )
+  f5_ip_lists = merge(local.ip_lists_from_single, local.ip_lists_from_multi)
+
   # Position configuration
   position_config = {
     where    = try(local.cluster_config.position.where, "last")
@@ -92,6 +113,9 @@ provider "panos" {}
 
 # Configure the CheckPoint provider
 provider "checkpoint" {}
+
+# Configure the F5 BIG-IP provider
+provider "bigip" {}
 
 module "palo_alto_firewall" {
   count = local.firewall_config.type == "palo-alto" ? 1 : 0
@@ -143,6 +167,16 @@ module "checkpoint_firewall" {
       per_session             = false
     })
   }
+}
+
+module "f5_waf" {
+  count = local.firewall_config.type == "f5-waf" ? 1 : 0
+
+  source = "../modules/f5-waf"
+
+  ip_lists = local.f5_ip_lists
+  location = local.f5_location_config
+  global   = local.f5_global_config
 }
 output "rules" {
   value = local.firewall_rules
