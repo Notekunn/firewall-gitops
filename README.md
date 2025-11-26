@@ -110,8 +110,14 @@ python scripts/validate_yaml.py
 
 ## 📖 Documentation
 
-- **[Getting Started Guide](docs/getting-started.md)** - Detailed setup and usage instructions
-- **[Configuration Guide](docs/configuration.md)** - Complete YAML configuration reference
+### Core Documentation
+- **[Project Overview & PDR](docs/project-overview-pdr.md)** - Vision, architecture, requirements, roadmap
+- **[System Architecture](docs/system-architecture.md)** - Data flow, components, CI/CD pipeline, state management
+- **[Codebase Summary](docs/codebase-summary.md)** - File structure, modules, configurations, patterns
+- **[Code Standards](docs/code-standards.md)** - Terraform, YAML, Python, Bash conventions, best practices
+
+### Additional Resources
+- **[CLAUDE.md](CLAUDE.md)** - AI agent guide with implementation details
 - **Example Configurations** - See `clusters/` directory for working examples
 
 ## 🛠️ Requirements
