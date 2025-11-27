@@ -98,6 +98,34 @@ variable "position" {
   }
 }
 
+variable "log_forwarding_profiles" {
+  description = "List of log forwarding profiles for centralized logging"
+  type = list(object({
+    name        = string
+    description = optional(string, "")
+    match_list = list(object({
+      name             = string
+      log_type         = string # Enum validated by schema
+      send_to_panorama = optional(bool, false)
+      syslog_profiles  = optional(list(string), [])
+      email_profiles   = optional(list(string), [])
+      http_profiles    = optional(list(string), [])
+      snmp_profiles    = optional(list(string), [])
+    }))
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for profile in var.log_forwarding_profiles : alltrue([
+        for match in profile.match_list :
+        contains(["traffic", "threat", "wildfire", "url", "data", "tunnel", "auth", "decryption"], match.log_type)
+      ])
+    ])
+    error_message = "log_type must be one of: traffic, threat, wildfire, url, data, tunnel, auth, decryption."
+  }
+}
+
 variable "global" {
   type = object({
     log_setting = optional(string, null)

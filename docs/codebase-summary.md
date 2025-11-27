@@ -193,6 +193,14 @@ variable "cluster_name" {
    - Supports security profile groups and individual profiles
    - Log settings per-rule or global
 
+4. **Log Forwarding Profiles** (Phase 1 Complete, Phase 2 In Progress)
+   - Variable: `log_forwarding_profiles` (defined in `variables.tf` lines 101-127)
+   - Schema: Validated in `schemas/cluster.schema.json` lines 134-224
+   - Supports 8 log types: traffic, threat, wildfire, url, data, tunnel, auth, decryption
+   - Destinations: syslog, email, HTTP, SNMP, Panorama
+   - **Phase 1:** Schema and variable definitions ✅ Complete
+   - **Phase 2:** YAML parser integration (planned)
+
 **Key Pattern:**
 ```hcl
 resource "panos_addresses" "address_objects" {
@@ -415,12 +423,17 @@ clusters/development/
 
 ### Schemas (JSON Schema Validation)
 
-#### `schemas/cluster.schema.json` (280 lines)
+#### `schemas/cluster.schema.json` (304 lines)
 **Purpose:** Validates `cluster.yaml` structure
 
 **Key Validations:**
 - `firewall.type` enum: `palo-alto`, `checkpoint`, `fortinet`, `f5-waf`
 - PAN-OS: Requires either `panorama` or `standalone` (mutually exclusive)
+- **NEW:** `log_forwarding_profiles` with comprehensive validation:
+  - Profile name validation (1-63 chars, alphanumeric/hyphens/underscores)
+  - Log type enum validation (8 supported types)
+  - Destination profile validation (syslog, email, HTTP, SNMP)
+  - Required field enforcement and defaults
 - CheckPoint: Requires `checkpoint` config with `layer_name`
 - F5: Requires `f5` config with `partition`
 - Position: `where`, `pivot`, `directly` fields
