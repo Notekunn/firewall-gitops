@@ -100,6 +100,9 @@ locals {
   )
   f5_ip_lists = merge(local.ip_lists_from_single, local.ip_lists_from_multi)
 
+  # Log forwarding profiles from firewall config
+  log_forwarding_profiles = try(local.firewall_config.log_forwarding_profiles, [])
+
   # Position configuration
   position_config = {
     where    = try(local.cluster_config.position.where, "last")
@@ -122,11 +125,12 @@ module "palo_alto_firewall" {
 
   source = "../modules/palo-alto"
 
-  firewall_rules     = local.firewall_rules
-  firewall_addresses = local.firewall_addresses
-  firewall_services  = local.firewall_services
-  position           = local.position_config
-  location           = local.location_config
+  firewall_rules          = local.firewall_rules
+  firewall_addresses      = local.firewall_addresses
+  firewall_services       = local.firewall_services
+  log_forwarding_profiles = local.log_forwarding_profiles
+  position                = local.position_config
+  location                = local.location_config
   global = {
     log_setting = try(local.cluster_config.log_setting, null)
   }

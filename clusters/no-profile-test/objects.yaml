@@ -1,0 +1,30 @@
+# Minimal test objects
+
+addresses:
+  - name: 'test-server'
+    description: 'Test server address'
+    ip_netmask: '192.168.1.100/32'
+    tags: ['test']
+
+services:
+  - name: 'test-service'
+    description: 'Test service'
+    type: 'tcp'
+    destination_port: '80'
+    source_port: '1024-65535'
+    tags: ['test']
+
+rules:
+  - name: 'test-rule'
+    description: 'Test firewall rule'
+    rule_type: 'universal'
+    source_zones: ['trust']
+    destination_zones: ['untrust']
+    source_addresses: ['any']
+    destination_addresses: ['test-server']
+    applications: ['web-browsing']
+    services: ['test-service']
+    action: 'allow'
+    log_start: false
+    log_end: true
+    tags: ['test']

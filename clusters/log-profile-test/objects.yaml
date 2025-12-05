@@ -1,0 +1,61 @@
+# Test objects for log forwarding profiles testing
+
+addresses:
+  - name: 'test-web-server'
+    description: 'Test web server address'
+    ip_netmask: '192.168.1.10/32'
+    tags: ['test', 'web']
+
+  - name: 'test-database-server'
+    description: 'Test database server address'
+    ip_netmask: '192.168.1.20/32'
+    tags: ['test', 'database']
+
+  - name: 'external-api'
+    description: 'External API service'
+    fqdn: 'api.example.com'
+    tags: ['external', 'api']
+
+services:
+  - name: 'https-traffic'
+    description: 'HTTPS web traffic'
+    type: 'tcp'
+    destination_port: '443'
+    source_port: '1024-65535'
+    tags: ['web', 'encrypted']
+
+  - name: 'database-traffic'
+    description: 'Database traffic'
+    type: 'tcp'
+    destination_port: '3306'
+    source_port: '1024-65535'
+    tags: ['database']
+
+rules:
+  - name: 'allow-https-outbound'
+    description: 'Allow HTTPS outbound traffic to external API'
+    rule_type: 'universal'
+    source_zones: ['trust']
+    destination_zones: ['untrust']
+    source_addresses: ['any']
+    destination_addresses: ['external-api']
+    applications: ['web-browsing', 'ssl']
+    services: ['https-traffic']
+    action: 'allow'
+    log_start: false
+    log_end: true
+    tags: ['test', 'outbound']
+
+  - name: 'allow-database-access'
+    description: 'Allow application to access database'
+    rule_type: 'universal'
+    source_zones: ['trust']
+    destination_zones: ['trust']
+    source_addresses: ['test-web-server']
+    destination_addresses: ['test-database-server']
+    applications: ['mysql']
+    services: ['database-traffic']
+    action: 'allow'
+    log_start: true
+    log_end: true
+    tags: ['test', 'internal']
