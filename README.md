@@ -10,6 +10,7 @@ This project provides a GitOps approach to managing firewall configurations usin
 - **Automated Validation**: YAML schema validation and Terraform plan checks
 - **Security Scanning**: Built-in security best practices validation
 - **Approval Workflows**: Manual approval gates for production changes
+- **SOAR Integration**: Automated security responses via webhook service (NEW)
 
 ## 🔥 Supported Firewalls
 
@@ -34,20 +35,31 @@ firewall-gitops/
 │   ├── palo-alto/              # Palo Alto Networks module
 │   │   ├── main.tf
 │   │   └── variables.tf
+│   ├── checkpoint/             # Check Point module
+│   │   ├── main.tf
+│   │   └── variables.tf
 │   └── shared/                 # Shared modules and utilities
 ├── terraform/                  # Main Terraform configuration
 │   ├── main.tf                 # YAML parser and module calls
 │   └── variables.tf
 ├── scripts/                    # Helper scripts
 │   ├── validate_yaml.py        # YAML validation script
-│   └── deploy.sh              # Local deployment script
+│   ├── deploy.sh              # Local deployment script
+│   ├── commit.sh              # PAN-OS commit script
+│   └── soar-webhook/          # SOAR webhook service (NEW)
+│       ├── cmd/server/        # Application entry point
+│       ├── internal/          # Private application code
+│       ├── Dockerfile         # Container build
+│       └── README.md          # SOAR webhook documentation
 ├── schemas/                    # JSON schemas for validation
 │   ├── cluster.schema.json     # Cluster configuration schema
 │   ├── rules.schema.json       # Rules configuration schema
 │   └── README.md              # Schema documentation
 ├── docs/                       # Documentation
-│   ├── configuration.md        # Configuration guide
-│   └── getting-started.md     # Getting started guide
+│   ├── project-overview-pdr.md # Project overview
+│   ├── system-architecture.md  # System architecture
+│   ├── code-standards.md       # Code standards and best practices
+│   └── index.md               # Documentation index
 ├── requirements.txt            # Python dependencies
 └── README.md
 ```
@@ -114,7 +126,10 @@ python scripts/validate_yaml.py
 - **[Project Overview & PDR](docs/project-overview-pdr.md)** - Vision, architecture, requirements, roadmap
 - **[System Architecture](docs/system-architecture.md)** - Data flow, components, CI/CD pipeline, state management
 - **[Codebase Summary](docs/codebase-summary.md)** - File structure, modules, configurations, patterns
-- **[Code Standards](docs/code-standards.md)** - Terraform, YAML, Python, Bash conventions, best practices
+- **[Code Standards](docs/code-standards.md)** - Terraform, YAML, Python, Bash, Go conventions, best practices
+
+### SOAR Webhook Service
+- **[SOAR Webhook README](scripts/soar-webhook/README.md)** - Automated security response service documentation
 
 ### Additional Resources
 - **[CLAUDE.md](CLAUDE.md)** - AI agent guide with implementation details
@@ -125,8 +140,10 @@ python scripts/validate_yaml.py
 ### Software Requirements
 - **Terraform** >= 1.0
 - **Python** >= 3.8 (for validation scripts)
+- **Go** >= 1.23.1 (for SOAR webhook service)
 - **Git** for version control
 - **GitLab** for CI/CD pipeline
+- **Docker** (optional, for containerized deployment)
 
 ### Firewall Access
 - **Palo Alto Networks**: API access to Panorama or NGFW

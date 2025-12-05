@@ -7,16 +7,34 @@
 │                          FIREWALL GITOPS SYSTEM                          │
 └─────────────────────────────────────────────────────────────────────────┘
 
-  ┌──────────────┐
-  │   Engineer   │  Writes YAML configs
-  └──────┬───────┘
-         │
-         ▼
-  ┌──────────────┐
-  │  Git Push    │  Feature branch → GitLab
-  └──────┬───────┘
-         │
-         ▼
+                  ┌──────────────┐
+                  │ SOAR Platform │
+                  │ (Splunk, etc) │
+                  └──────┬───────┘
+                         │ Webhook
+                         ▼
+              ┌─────────────────────┐
+              │   SOAR Webhook      │  <-- NEW: Automated Security Response
+              │     Service         │  - Receives security events
+              └──────┬───────┬──────┘
+                     │       │ Git Push
+                     ▼       ▼
+            ┌─────────────────────┐
+            │  Firewall Config    │
+            │   Repository        │
+            └──────┬───────┬──────┘
+                   │       │
+                   ▼       ▼
+  ┌──────────────┐  ┌──────────────┐
+  │   Engineer   │  │   SOAR Bot    │  Writes YAML configs
+  └──────┬───────┘  └──────┬───────┘  (automated responses)
+         │                 │
+         ▼                 ▼
+  ┌──────────────┐  ┌──────────────┐
+  │  Git Push    │  │  Git Push    │  Feature branch → GitLab
+  └──────┬───────┘  └──────┬───────┘
+         │                 │
+         ▼                 ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                         GITLAB CI/CD PIPELINE                           │
 ├────────────────────────────────────────────────────────────────────────┤
@@ -234,6 +252,116 @@ resource "checkpoint_management_publish" "publish" {
 - Service objects created
 - Security rules deployed
 - Terraform state updated in GitLab
+
+---
+
+## SOAR Webhook Integration (Automated Security Response)
+
+### Overview
+
+The SOAR (Security Orchestration, Automation and Response) Webhook Service enables automated security responses by integrating external security platforms with the Firewall GitOps workflow. This allows security teams to automatically block threats, update firewall rules, and respond to incidents without manual intervention.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SOAR WEBHOOK SERVICE                     │
+│                    (Go Microservice)                        │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ │
+│  │  Webhook     │  │  Event       │  │  Git Integration │ │
+│  │  Receiver    │->│  Processor   |->│     Module       │ │
+│  │  (HTTP API)  │  │  (Parser)    │  │  (Clone/Push)    │ │
+│  └──────────────┘  └──────────────┘  └──────────────────┘ │
+└──────────────────┬──────────────────────────────────────────┘
+                   │ Git Push
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│              FIREWALL CONFIG REPOSITORY                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ │
+│  │  clusters/   │  │  objects/    │  │  Auto-generated  │ │
+│  │  *.yaml      │  │  *.yaml      │  │  branch         │ │
+│  └──────────────┘  └──────────────┘  └──────────────────┘ │
+└──────────────────┬──────────────────────────────────────────┘
+                   │ Triggers
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  GITLAB CI/CD PIPELINE                      │
+│  Validate → Plan → Review → Apply → Verify                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Event Flow
+
+1. **Security Event Detected**: SOAR platform (Splunk SOAR, Palo Alto Cortex XSOAR, etc.) detects a threat
+2. **Webhook Triggered**: SOAR sends HTTP POST to SOAR Webhook Service
+3. **Event Validation**: Service validates webhook signature and parses payload
+4. **Response Generation**: Based on event type, generates appropriate firewall rule updates
+5. **Git Operations**:
+   - Clones the firewall configuration repository
+   - Creates new branch with automated rule changes
+   - Commits changes with descriptive commit message
+   - Pushes to GitLab, triggering CI/CD pipeline
+6. **Automated Deployment**: GitLab CI/CD validates and applies changes to firewall
+
+### Configuration
+
+Environment Variables:
+```bash
+# GitLab Integration
+GITLAB_URL="https://gitlab.example.com"
+GITLAB_TOKEN="glpat-xxxxxxxxxxxxxxxxxxxx"
+GITLAB_PROJECT_ID="123"
+REPO_CLONE_URL="https://gitlab.example.com/your-org/firewall-configs.git"
+
+# Service Configuration
+WEBHOOK_SECRET="your-random-secret-string"
+TARGET_CLUSTER="production"  # Default cluster to update
+SERVER_PORT="8080"           # HTTP server port
+```
+
+### Supported Event Types (Planned)
+
+- **Malicious IP**: Automatically blocks IP addresses
+- **C2 Domain**: Blocks command and control domains
+- **Threat Intelligence**: Integrates with threat feeds
+- **Anomaly Detection**: Creates temporary restrictions
+- **Incident Response**: Implements quarantine rules
+
+### Security Features
+
+- **Webhook Signature Validation**: HMAC-SHA256 signature verification
+- **Rate Limiting**: Prevents abuse and DoS attacks
+- **Audit Logging**: All actions logged with full traceability
+- **Rule Validation**: Generated rules undergo YAML schema validation
+- **Manual Override**: Security team can review automated changes
+
+### Implementation Phases
+
+**Phase 01 (Current)**: ✅ Project Setup & Configuration
+- Configuration management with environment variables
+- Structured logging implementation
+- Unit test framework setup
+
+**Phase 02**: 🚧 Web API Development
+- HTTP server with webhook endpoints
+- Request validation and parsing
+- Response formatting
+
+**Phase 03**: 🚧 Git Integration
+- Repository cloning and management
+- Branch creation and file operations
+- Commit and push automation
+
+**Phase 04**: 🚧 Event Processing
+- Event parsing and classification
+- Rule generation logic
+- Security response workflows
+
+**Phase 05**: 🚧 Advanced Features
+- Multi-platform integration
+- Custom workflow engine
+- Performance optimization
 
 ---
 

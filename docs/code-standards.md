@@ -91,6 +91,122 @@ if __name__ == "__main__":
 
 ---
 
+## Go Standards
+
+### Style
+- Follow standard Go formatting: `go fmt ./...`
+- Use `golangci-lint` for linting
+- Maximum line length: 120 characters
+- Use meaningful variable names, avoid abbreviations
+
+### Package Organization
+```
+project/
+├── cmd/
+│   └── servicename/     # Main application entry point
+│       └── main.go
+├── internal/            # Private application code
+│   ├── config/         # Configuration management
+│   ├── handler/        # HTTP handlers
+│   ├── service/        # Business logic
+│   └── repository/     # Data access
+├── pkg/                # Public library code (if any)
+└── go.mod
+```
+
+### Error Handling
+```go
+// Always handle errors explicitly
+cfg, err := config.Load()
+if err != nil {
+    slog.Error("failed to load config", "error", err)
+    os.Exit(1)
+}
+
+// Wrap errors with context
+return fmt.Errorf("failed to process webhook: %w", err)
+```
+
+### Logging
+```go
+// Use structured logging with slog
+logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+slog.SetDefault(logger)
+
+// Log with structured data
+slog.Info("processing webhook",
+    "event_id", eventID,
+    "source_ip", sourceIP,
+    "event_type", eventType)
+```
+
+### Testing
+```go
+// Table-driven tests for multiple scenarios
+func TestConfigLoad(t *testing.T) {
+    tests := []struct {
+        name     string
+        envVars  map[string]string
+        want     *Config
+        wantErr  bool
+    }{
+        {
+            name: "success with all env vars",
+            envVars: map[string]string{
+                "GITLAB_URL": "https://gitlab.example.com",
+                // ...
+            },
+            want: &Config{
+                GitLabURL: "https://gitlab.example.com",
+                // ...
+            },
+            wantErr: false,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Test implementation
+        })
+    }
+}
+```
+
+### Environment Variables
+```go
+// Use getEnv helper with defaults
+func getEnv(key, fallback string) string {
+    if v := os.Getenv(key); v != "" {
+        return v
+    }
+    return fallback
+}
+
+// Validate required configuration
+func (c *Config) Validate() error {
+    if c.GitLabURL == "" {
+        return fmt.Errorf("missing required env var: GITLAB_URL")
+    }
+    return nil
+}
+```
+
+### Context Usage
+```go
+// Always accept context in HTTP handlers and service methods
+func (s *Service) ProcessWebhook(ctx context.Context, event WebhookEvent) error {
+    // Use context for cancellation and timeouts
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    default:
+        // Process event
+    }
+}
+```
+
+---
+
 ## Bash Standards
 
 ### Shebang
