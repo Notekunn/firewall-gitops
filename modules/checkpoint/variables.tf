@@ -90,3 +90,14 @@ variable "global" {
   default     = {}
   description = "Global settings for CheckPoint firewall"
 }
+
+variable "ip_lists" {
+  description = "IP lists for blocklist and whitelist (global only)"
+  type = object({
+    global = optional(object({
+      blocklist = optional(list(string), [])
+      whitelist = optional(list(string), [])
+    }), {})
+  })
+  default = {}
+}

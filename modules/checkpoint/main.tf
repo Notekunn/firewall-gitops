@@ -2,7 +2,7 @@ terraform {
   required_providers {
     checkpoint = {
       source  = "CheckPointSW/checkpoint"
-      version = "~> 2.11.0"
+      version = "~> 2.12.0"
     }
   }
 }
@@ -44,6 +44,73 @@ locals {
     per_connection          = true
     per_session             = false
   })
+
+  # IP Lists processing - Global only
+  whitelist_ips = try(var.ip_lists.global.whitelist, [])
+  blocklist_ips = try(var.ip_lists.global.blocklist, [])
+
+  # Validate IP format to prevent injection
+  validated_whitelist = [for ip in local.whitelist_ips : ip if can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/[0-9]{1,2})?$", ip))]
+  validated_blocklist = [for ip in local.blocklist_ips : ip if can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/[0-9]{1,2})?$", ip))]
+
+  # Combine and deduplicate all IPs
+  all_unique_ips = distinct(concat(local.validated_whitelist, local.validated_blocklist))
+
+  # Build membership map: ip -> which lists it belongs to
+  # Use sets for O(1) lookups instead of O(n) contains()
+  whitelist_set = toset(local.validated_whitelist)
+  blocklist_set = toset(local.validated_blocklist)
+
+  ip_membership = {
+    for ip in local.all_unique_ips : ip => {
+      in_whitelist = contains(local.whitelist_set, ip)
+      in_blocklist = contains(local.blocklist_set, ip)
+    }
+  }
+
+  # Generate standardized name from IP
+  # 172.16.29.1 -> IP-List_172.16.29.1
+  # 10.0.0.0/24 -> IP-List_10.0.0.0_24
+  ip_to_name = {
+    for ip in local.all_unique_ips : ip => (
+      can(regex("/", ip))
+      ? "IP-List_${split("/", ip)[0]}_${split("/", ip)[1]}"
+      : "IP-List_${ip}"
+    )
+  }
+
+  # Classify IPs into hosts and networks
+  iplist_hosts = {
+    for ip in local.all_unique_ips : local.ip_to_name[ip] => {
+      name         = local.ip_to_name[ip]
+      original_ip  = ip
+      ipv4_address = can(regex("/", ip)) ? split("/", ip)[0] : ip
+      in_whitelist = local.ip_membership[ip].in_whitelist
+      in_blocklist = local.ip_membership[ip].in_blocklist
+    } if !can(regex("/", ip)) || can(regex("/32$", ip))
+  }
+
+  iplist_networks = {
+    for ip in local.all_unique_ips : local.ip_to_name[ip] => {
+      name         = local.ip_to_name[ip]
+      original_ip  = ip
+      subnet       = split("/", ip)[0]
+      mask         = tonumber(split("/", ip)[1])
+      in_whitelist = local.ip_membership[ip].in_whitelist
+      in_blocklist = local.ip_membership[ip].in_blocklist
+    } if can(regex("/", ip)) && !can(regex("/32$", ip))
+  }
+
+  # Build group member lists from unified resources
+  whitelist_members = concat(
+    [for name, h in local.iplist_hosts : name if h.in_whitelist],
+    [for name, n in local.iplist_networks : name if n.in_whitelist]
+  )
+
+  blocklist_members = concat(
+    [for name, h in local.iplist_hosts : name if h.in_blocklist],
+    [for name, n in local.iplist_networks : name if n.in_blocklist]
+  )
 }
 
 # Create host objects (single IP addresses and FQDNs)
@@ -109,6 +176,82 @@ resource "checkpoint_management_service_udp" "udp_services" {
   ignore_errors   = false
 }
 
+# IP List hosts (single IPs from both whitelist and blocklist)
+resource "checkpoint_management_host" "iplist_hosts" {
+  for_each = local.iplist_hosts
+
+  name         = each.value.name
+  ipv4_address = each.value.ipv4_address
+  comments = "Auto-generated from ip_lists: ${join(", ", compact([
+    each.value.in_whitelist ? "whitelist" : "",
+    each.value.in_blocklist ? "blocklist" : ""
+  ]))}"
+  tags = concat(
+    ["gitops", "ip-list"],
+    each.value.in_whitelist ? ["whitelist"] : [],
+    each.value.in_blocklist ? ["blocklist"] : []
+  )
+  color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
+    each.value.in_whitelist ? "green" : "red"
+  )
+
+  ignore_warnings = true
+  ignore_errors   = false
+}
+
+# IP List networks (CIDRs from both whitelist and blocklist)
+resource "checkpoint_management_network" "iplist_networks" {
+  for_each = local.iplist_networks
+
+  name         = each.value.name
+  subnet4      = each.value.subnet
+  mask_length4 = each.value.mask
+  comments = "Auto-generated from ip_lists"
+  tags = concat(
+    ["gitops", "ip-list"],
+    each.value.in_whitelist ? ["whitelist"] : [],
+    each.value.in_blocklist ? ["blocklist"] : []
+  )
+  color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
+    each.value.in_whitelist ? "green" : "red"
+  )
+
+  ignore_warnings = true
+  ignore_errors   = false
+}
+
+# Whitelist group - always created, may be empty
+resource "checkpoint_management_group" "whitelist_group" {
+  name     = "whitelist_group"
+  members  = local.whitelist_members
+  comments = "Auto-generated whitelist group from ip_lists"
+  color    = "green"
+
+  ignore_warnings = true
+  ignore_errors   = false
+
+  depends_on = [
+    checkpoint_management_host.iplist_hosts,
+    checkpoint_management_network.iplist_networks
+  ]
+}
+
+# Blocklist group - always created, may be empty
+resource "checkpoint_management_group" "blocklist_group" {
+  name     = "blocklist_group"
+  members  = local.blocklist_members
+  comments = "Auto-generated blocklist group from ip_lists"
+  color    = "red"
+
+  ignore_warnings = true
+  ignore_errors   = false
+
+  depends_on = [
+    checkpoint_management_host.iplist_hosts,
+    checkpoint_management_network.iplist_networks
+  ]
+}
+
 # Create access rules
 resource "checkpoint_management_access_rule" "rules" {
   for_each = { for idx, rule in var.firewall_rules : rule.name => merge(rule, { index = idx }) }
@@ -172,6 +315,10 @@ resource "checkpoint_management_publish" "publish" {
     jsonencode(checkpoint_management_service_tcp.tcp_services),
     jsonencode(checkpoint_management_service_udp.udp_services),
     jsonencode(checkpoint_management_access_rule.rules),
+    jsonencode(checkpoint_management_host.iplist_hosts),
+    jsonencode(checkpoint_management_network.iplist_networks),
+    jsonencode(checkpoint_management_group.whitelist_group),
+    jsonencode(checkpoint_management_group.blocklist_group),
   ]
 
   depends_on = [
@@ -179,6 +326,11 @@ resource "checkpoint_management_publish" "publish" {
     checkpoint_management_network.networks,
     checkpoint_management_service_tcp.tcp_services,
     checkpoint_management_service_udp.udp_services,
-    checkpoint_management_access_rule.rules
+    checkpoint_management_access_rule.rules,
+    # IP lists resources
+    checkpoint_management_host.iplist_hosts,
+    checkpoint_management_network.iplist_networks,
+    checkpoint_management_group.whitelist_group,
+    checkpoint_management_group.blocklist_group
   ]
 }

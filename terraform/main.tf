@@ -158,6 +158,7 @@ module "checkpoint_firewall" {
   firewall_services  = local.firewall_services
   position           = local.position_config
   location           = local.checkpoint_location_config
+  ip_lists           = local.f5_ip_lists # Reuse same parsed data
   global = {
     layer_name   = try(local.cluster_config.checkpoint.layer_name, "Network")
     auto_publish = try(local.cluster_config.checkpoint.auto_publish, true)

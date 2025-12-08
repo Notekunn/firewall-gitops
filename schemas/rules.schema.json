@@ -9,7 +9,7 @@
 	"properties": {
 		"ip_lists": {
 			"type": "object",
-			"description": "IP lists for F5 WAF blocklist and whitelist",
+			"description": "IP lists for F5 WAF and CheckPoint blocklist and whitelist",
 			"additionalProperties": false,
 			"properties": {
 				"global": {
