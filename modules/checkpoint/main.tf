@@ -45,6 +45,13 @@ locals {
     per_session             = false
   })
 
+  # Policy installation settings
+  auto_install_policy                    = try(var.global.auto_install_policy, false)
+  policy_package                         = try(var.global.policy_package, null)
+  policy_targets                         = try(var.global.policy_targets, [])
+  wait_for_task_timeout                  = try(var.global.wait_for_task_timeout, 30)
+  install_on_all_cluster_members_or_fail = try(var.global.install_on_all_cluster_members_or_fail, true)
+
   # IP Lists processing - Global only
   whitelist_ips = try(var.ip_lists.global.whitelist, [])
   blocklist_ips = try(var.ip_lists.global.blocklist, [])
@@ -182,15 +189,7 @@ resource "checkpoint_management_host" "iplist_hosts" {
 
   name         = each.value.name
   ipv4_address = each.value.ipv4_address
-  comments = "Auto-generated from ip_lists: ${join(", ", compact([
-    each.value.in_whitelist ? "whitelist" : "",
-    each.value.in_blocklist ? "blocklist" : ""
-  ]))}"
-  tags = concat(
-    ["gitops", "ip-list"],
-    each.value.in_whitelist ? ["whitelist"] : [],
-    each.value.in_blocklist ? ["blocklist"] : []
-  )
+  comments = "Auto-generated from ip_lists"
   color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
     each.value.in_whitelist ? "green" : "red"
   )
@@ -206,12 +205,7 @@ resource "checkpoint_management_network" "iplist_networks" {
   name         = each.value.name
   subnet4      = each.value.subnet
   mask_length4 = each.value.mask
-  comments = "Auto-generated from ip_lists"
-  tags = concat(
-    ["gitops", "ip-list"],
-    each.value.in_whitelist ? ["whitelist"] : [],
-    each.value.in_blocklist ? ["blocklist"] : []
-  )
+  comments     = "Auto-generated from ip_lists"
   color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
     each.value.in_whitelist ? "green" : "red"
   )

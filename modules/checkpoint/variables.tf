@@ -85,10 +85,24 @@ variable "global" {
       per_connection          = optional(bool, true)
       per_session             = optional(bool, false)
     }), {})
+    # Policy installation settings (Option B)
+    policy_package                         = optional(string, null)
+    auto_install_policy                    = optional(bool, false)
+    policy_targets                         = optional(list(string), [])
+    wait_for_task_timeout                  = optional(number, 30)
+    install_on_all_cluster_members_or_fail = optional(bool, true)
   })
   nullable    = true
   default     = {}
-  description = "Global settings for CheckPoint firewall"
+  description = "Global settings for CheckPoint firewall including policy installation"
+
+  validation {
+    condition = (
+      try(var.global.auto_install_policy, false) == false ||
+      (try(var.global.policy_package, null) != null && length(try(var.global.policy_targets, [])) > 0)
+    )
+    error_message = "policy_package and policy_targets required when auto_install_policy is true"
+  }
 }
 
 variable "ip_lists" {
