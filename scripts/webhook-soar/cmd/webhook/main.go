@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"firewall-gitops/webhook-soar/internal/config"
+	"firewall-gitops/webhook-soar/internal/repository"
 )
 
 func main() {
@@ -24,6 +25,22 @@ func main() {
 		"project_id", cfg.GitLabProjectID,
 		"branch", cfg.GitLabBranch,
 		"port", cfg.ServerPort)
+
+	// Initialize GitLab repository
+	_, err = repository.NewGitLabRepository(
+		cfg.GitLabURL,
+		cfg.GitLabToken,
+		cfg.GitLabProjectID,
+		cfg.GitLabBranch,
+	)
+	if err != nil {
+		slog.Error("failed to initialize gitlab repository", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("gitlab repository initialized successfully",
+		"project_id", cfg.GitLabProjectID,
+		"base_branch", cfg.GitLabBranch)
 
 	// TODO: Initialize HTTP server (Phase 04)
 }

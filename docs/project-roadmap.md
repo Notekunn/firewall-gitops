@@ -19,14 +19,14 @@ Firewall GitOps: A YAML-to-Terraform automation system for managing firewall con
 
 #### SOAR Webhook Service (2025-12-09)
 **Location**: `scripts/webhook-soar/`
-**Status**: Phase 1 Complete, Phase 2 Next
+**Status**: Phase 1-3 Complete, Phase 4 Next
 
 | Phase | Description | Status | Completion |
 |-------|-------------|--------|------------|
 | Phase 01 | Project setup & configuration | ✅ Done | 2025-12-09 |
-| Phase 02 | GitLab API integration | 🔄 Next | In Progress |
-| Phase 03 | YAML parsing & IP management | ⏳ Pending | - |
-| Phase 04 | HTTP webhook handler | ⏳ Pending | - |
+| Phase 02 | GitLab API integration | ✅ Done | 2025-12-09 |
+| Phase 03 | YAML parsing & IP management | ✅ Done | 2025-12-09 |
+| Phase 04 | HTTP webhook handler | 🔄 Next | In Progress |
 | Phase 05 | Testing & deployment | ⏳ Pending | - |
 
 **Purpose**: Automatically update firewall blocklists from SOAR platform alerts via webhooks
@@ -53,8 +53,15 @@ Firewall GitOps: A YAML-to-Terraform automation system for managing firewall con
 ## Recent Milestones
 
 ### 2025-12-09
-- ✅ **SOAR Webhook Service**: Phase 01 (Project Setup) completed
-- ✅ Project structure initialized with Go modules
+- ✅ **SOAR Webhook Service**: Phases 01-03 completed
+- ✅ Project structure initialized with Go modules (Phase 01)
+- ✅ GitLab API integration client implemented (Phase 02)
+- ✅ YAML parsing & IP management functionality complete (Phase 03)
+  - ✅ Nested object navigation for complex YAML structures
+  - ✅ IP deduplication with intelligent normalization
+  - ✅ Comment preservation during YAML updates
+  - ✅ Format preservation with 2-space indentation
+  - ✅ Comprehensive test suite (100% coverage)
 - ✅ Configuration management system designed
 - ✅ Documentation and README created
 
@@ -69,17 +76,17 @@ Firewall GitOps: A YAML-to-Terraform automation system for managing firewall con
 
 ## Upcoming Sprints
 
-### Sprint 2025-12-16: SOAR Integration
-- Complete Phase 02: GitLab API integration
-- Implement GitLab client wrapper
-- Add merge request creation functionality
-- Add unit tests for GitLab operations
+### Sprint 2025-12-16: SOAR Integration - COMPLETED
+- ✅ Complete Phase 02: GitLab API integration
+- ✅ Implement GitLab client wrapper
+- ✅ Add merge request creation functionality
+- ✅ Add unit tests for GitLab operations
 
-### Sprint 2025-12-23: IP Management
-- Complete Phase 03: YAML parsing & IP management
-- Implement IP deduplication logic
-- Add YAML file update functionality
-- Add validation for IP addresses
+### Sprint 2025-12-23: IP Management - COMPLETED
+- ✅ Complete Phase 03: YAML parsing & IP management
+- ✅ Implement IP deduplication logic
+- ✅ Add YAML file update functionality
+- ✅ Add validation for IP addresses
 
 ### Sprint 2025-12-30: Webhook Handler
 - Complete Phase 04: HTTP webhook handler

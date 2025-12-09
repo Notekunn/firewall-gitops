@@ -13,9 +13,9 @@ Lightweight Go webhook service receiving SOAR alerts, extracting attacker IPs, u
 | Phase | Description | Status |
 |-------|-------------|--------|
 | [01](phase-01-project-setup.md) | Project setup & configuration | **Done** (2025-12-09) |
-| [02](phase-02-gitlab-integration.md) | GitLab API integration | Next |
-| [03](phase-03-yaml-processor.md) | YAML parsing & IP management | Pending |
-| [04](phase-04-webhook-handler.md) | HTTP webhook handler | Pending |
+| [02](phase-02-gitlab-integration.md) | GitLab API integration | **Done** (2025-12-09) |
+| [03](phase-03-yaml-processor.md) | YAML parsing & IP management | **Done** (2025-12-09) |
+| [04](phase-04-webhook-handler.md) | HTTP webhook handler | Next |
 | [05](phase-05-testing-deployment.md) | Testing & deployment | Pending |
 
 ## Key Dependencies
