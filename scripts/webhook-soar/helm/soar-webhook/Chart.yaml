@@ -1,0 +1,17 @@
+apiVersion: v2
+name: soar-webhook
+description: A Helm chart for SOAR Webhook Service
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - webhook
+  - soar
+  - security
+  - gitops
+home: https://github.com/example/firewall-gitops
+sources:
+  - https://github.com/example/firewall-gitops
+maintainers:
+  - name: Security Team
+    email: security@example.com
