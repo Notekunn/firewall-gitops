@@ -27,6 +27,10 @@ firewall-gitops/
 │   ├── cluster.schema.json
 │   └── rules.schema.json
 ├── scripts/              # Automation scripts
+│   ├── webhook-soar/    # SOAR webhook service for automated threat response
+│   │   ├── cmd/webhook/ # Main application entry point
+│   │   ├── internal/    # Internal packages (config, handler, service, repo)
+│   │   └── README.md    # Service documentation
 │   ├── commit.sh        # PAN-OS commit script (partial commits)
 │   ├── deploy.sh        # Local deployment wrapper
 │   └── validate_yaml.py # YAML validation against schemas
@@ -895,8 +899,8 @@ terraform init \
 ## Code Statistics
 
 ```
-Total Files: 50+
-Total Lines: ~4,500
+Total Files: 55+
+Total Lines: ~4,650
 
 Terraform: ~1,200 lines (27%)
   - terraform/main.tf: 190
@@ -914,6 +918,11 @@ YAML: ~800 lines (18%)
 Python: ~250 lines (6%)
   - validate_yaml.py: 180
   - Other scripts: 70
+
+Go: ~150 lines (3%) [NEW - SOAR Webhook Service]
+  - cmd/webhook/main.go: 30
+  - internal/config/config.go: 80
+  - internal/config/config_test.go: 40
 
 Bash: ~350 lines (8%)
   - deploy.sh: 220
@@ -990,13 +999,14 @@ Documentation: ~1,000 lines (22%)
 ### Planned Improvements
 
 1. **Fortinet Module Completion** - Implement FortiGate/FortiManager support
-2. **Terraform Plan Visualization** - Render plan diffs in MR comments
-3. **Configuration Drift Detection** - Compare Git state vs firewall actual config
-4. **Advanced Security Profiles** - Enhanced profile management for PAN-OS
-5. **Multi-Region Support** - Deploy same config to multiple firewalls
-6. **Automated Testing** - Integration tests for rule validation
-7. **Change Impact Analysis** - Predict affected connections before deployment
-8. **Disaster Recovery** - Automated backup and restore procedures
+2. **SOAR Webhook Service Development** - Complete Phases 02-05 for automated threat response
+3. **Terraform Plan Visualization** - Render plan diffs in MR comments
+4. **Configuration Drift Detection** - Compare Git state vs firewall actual config
+5. **Advanced Security Profiles** - Enhanced profile management for PAN-OS
+6. **Multi-Region Support** - Deploy same config to multiple firewalls
+7. **Automated Testing** - Integration tests for rule validation
+8. **Change Impact Analysis** - Predict affected connections before deployment
+9. **Disaster Recovery** - Automated backup and restore procedures
 
 ### Technical Debt
 

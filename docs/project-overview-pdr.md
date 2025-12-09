@@ -168,6 +168,14 @@ YAML Config → Git Push → Pipeline Validation → Terraform Plan → Approval
 - **FR8.2** - iRule-based filtering
 - **FR8.3** - Partition support for multi-tenancy
 
+#### FR9: SOAR Webhook Service (NEW - Phase 01 Complete)
+- **FR9.1** - HTTP webhook endpoint for receiving SOAR security alerts
+- **FR9.2** - Configuration management for GitLab integration
+- **FR9.3** - Go-based service with modular architecture
+- **FR9.4** - Environment-based configuration (GitLab token, project ID, YAML paths)
+- **FR9.5** - Foundation for automated IP blocklist updates
+- **FR9.6** - Comprehensive test coverage for all components
+
 ### Non-Functional Requirements
 
 #### NFR1: Performance
@@ -175,6 +183,7 @@ YAML Config → Git Push → Pipeline Validation → Terraform Plan → Approval
 - **NFR1.2** - Terraform plan generation in < 5 minutes for typical cluster
 - **NFR1.3** - Support 100+ firewall rules per cluster
 - **NFR1.4** - Parallel cluster deployments without performance degradation
+- **NFR1.5** - SOAR webhook response time < 500ms (Phase 02 target)
 
 #### NFR2: Reliability
 - **NFR2.1** - State locking prevents concurrent modifications
@@ -354,6 +363,7 @@ YAML Config → Git Push → Pipeline Validation → Terraform Plan → Approval
 - Configuration drift detection
 - Change impact analysis
 - Slack/Teams notifications
+- SOAR webhook service completion (Phases 02-05)
 
 ### Phase 5: Advanced Automation (Planned 📋)
 - AI-powered rule optimization suggestions

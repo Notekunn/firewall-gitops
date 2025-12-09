@@ -11,6 +11,11 @@ Firewall GitOps: A YAML-to-Terraform automation system for managing firewall con
 - Check Point - Management Server with policy layers
 - Fortinet - Planned for future release
 
+**SOAR Integration:**
+- Webhook service for automated threat response (Phase 01 complete)
+- Receives security alerts from SOAR platforms
+- Automatically updates firewall blocklists via GitOps workflow
+
 ## Core Architecture
 
 ### Data Flow: YAML → Terraform → PAN-OS
@@ -281,6 +286,64 @@ Configuration in `terraform/main.tf:94`. Environment variables:
 - `CHECKPOINT_CONTEXT`: Management domain context (use `web_api` for default)
 - `CHECKPOINT_TIMEOUT`: Connection timeout (default: 120 seconds)
 
+## SOAR Webhook Service
+
+### Overview
+Location: `scripts/webhook-soar/`
+
+A Go-based microservice for automated threat response that integrates SOAR platforms with the Firewall GitOps workflow. The service receives security alerts via HTTP webhooks and automatically updates firewall configurations.
+
+### Phase 01 Implementation (Complete)
+
+**Project Structure:**
+```
+scripts/webhook-soar/
+├── cmd/webhook/main.go          # Application entry point
+├── internal/
+│   └── config/
+│       ├── config.go            # Configuration management
+│       └── config_test.go       # Unit tests
+├── go.mod                       # Go module: firewall-gitops/webhook-soar
+└── README.md                    # Service documentation
+```
+
+**Configuration:**
+Environment variables for all settings:
+```bash
+# Required
+GITLAB_TOKEN="glpat-xxxxxxxxxxxxxxxxxxxx"
+GITLAB_PROJECT_ID="123"
+REPO_CLONE_URL="https://gitlab.example.com/your-org/firewall-configs.git"
+
+# Optional (with defaults)
+GITLAB_URL="https://gitlab.com"
+TARGET_CLUSTER="production"
+YAML_FILE_PATH="clusters/production/objects.yaml"
+OBJECT_PATH="ip_lists.global.blocklist"
+SERVER_PORT="8080"
+```
+
+**Build and Run:**
+```bash
+cd scripts/webhook-soar
+go build -o webhook ./cmd/webhook
+export GITLAB_TOKEN="your-token"
+export GITLAB_PROJECT_ID="123"
+export REPO_CLONE_URL="https://gitlab.example.com/repo.git"
+./webhook
+```
+
+### Phase 02-05 (Planned)
+- GitLab API integration for repository operations
+- YAML processing for IP list updates
+- HTTP webhook handlers for SOAR platforms
+- Testing and deployment automation
+
+### Integration Flow
+```
+SOAR Alert → HTTP POST → Webhook Service → Git Operations → CI/CD Pipeline → Firewall Update
+```
+
 ## Security Requirements
 
 From AGENTS.md:
@@ -289,3 +352,4 @@ From AGENTS.md:
 - **Environment variables**: `GITLAB_TOKEN`, `PANOS_API_KEY`, `PANOS_PASSWORD`, `CHECKPOINT_PASSWORD`
 - **GitLab CI/CD**: Store secrets in project CI/CD variables
 - **PAN-OS Partial Commits**: `scripts/commit.sh` uses per-admin partial commits to avoid overwriting other administrators' configurations
+- **SOAR Webhook**: Use `WEBHOOK_SECRET` for signature validation (Phase 02)
