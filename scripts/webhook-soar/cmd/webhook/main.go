@@ -38,6 +38,8 @@ func main() {
 		cfg.GitLabProjectID,
 		cfg.GitLabBranch,
 		cfg.GitSkipTLSVerify,
+		cfg.GitUserName,
+		cfg.GitUserEmail,
 	)
 	if err != nil {
 		slog.Error("failed to initialize gitlab repository", "error", err)

@@ -63,6 +63,8 @@ func createTestRepo(t *testing.T) (*GitLabRepository, string, func()) {
 		projectID:  "123",
 		baseBranch: "main",
 		repoURL:    "https://gitlab.com/test/repo.git",
+		userName:   "Test User",
+		userEmail:  "test@example.com",
 	}
 
 	cleanup := func() {

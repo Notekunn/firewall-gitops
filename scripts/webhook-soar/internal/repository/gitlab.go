@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -20,10 +22,26 @@ type GitLabRepository struct {
 	baseBranch string
 	repoURL    string
 	skipTLS    bool
+	userName   string
+	userEmail  string
 }
 
-func NewGitLabRepository(url, token, projectID, branch string, skipTLS bool) (*GitLabRepository, error) {
-	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url))
+func NewGitLabRepository(url, token, projectID, branch string, skipTLS bool, userName, userEmail string) (*GitLabRepository, error) {
+	opts := []gitlab.ClientOptionFunc{gitlab.WithBaseURL(url)}
+
+	// Configure custom HTTP client with TLS skip if needed
+	if skipTLS {
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+		opts = append(opts, gitlab.WithHTTPClient(httpClient))
+	}
+
+	client, err := gitlab.NewClient(token, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitlab client: %w", err)
 	}
@@ -45,6 +63,8 @@ func NewGitLabRepository(url, token, projectID, branch string, skipTLS bool) (*G
 		baseBranch: branch,
 		repoURL:    project.HTTPURLToRepo,
 		skipTLS:    skipTLS,
+		userName:   userName,
+		userEmail:  userEmail,
 	}, nil
 }
 
@@ -133,8 +153,11 @@ func (r *GitLabRepository) CommitChanges(ctx context.Context, repoPath, message 
 		return nil
 	}
 
-	// Commit with message
-	commitCmd := exec.CommandContext(ctx, "git", "commit", "-m", message)
+	// Commit with message using configured author
+	commitCmd := exec.CommandContext(ctx, "git",
+		"-c", "user.name="+r.userName,
+		"-c", "user.email="+r.userEmail,
+		"commit", "-m", message)
 	commitCmd.Dir = repoPath
 	if output, err := commitCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git commit failed: %w: %s", err, output)

@@ -71,12 +71,15 @@ addresses:
 		cfg.GitLabToken,
 		cfg.GitLabProjectID,
 		cfg.GitLabBranch,
+		false, // skipTLS
+		"Test User",
+		"test@example.com",
 	)
 	require.NoError(t, err)
 
 	yamlProc := service.NewYAMLProcessor(cfg.YAMLFilePath, cfg.ObjectPath)
 	processor := service.NewProcessor(repo, yamlProc)
-	webhookHandler := handler.NewWebhookHandler(processor)
+	webhookHandler := handler.NewWebhookHandler(processor, "")
 
 	// Test data
 	testIP := "10.0.0.100"
@@ -184,12 +187,15 @@ addresses:
 		cfg.GitLabToken,
 		cfg.GitLabProjectID,
 		cfg.GitLabBranch,
+		false, // skipTLS
+		"Test User",
+		"test@example.com",
 	)
 	require.NoError(t, err)
 
 	yamlProc := service.NewYAMLProcessor(cfg.YAMLFilePath, cfg.ObjectPath)
 	processor := service.NewProcessor(repo, yamlProc)
-	webhookHandler := handler.NewWebhookHandler(processor)
+	webhookHandler := handler.NewWebhookHandler(processor, "")
 
 	// Try to add the existing IP
 	reqBody := map[string]interface{}{
@@ -245,12 +251,15 @@ func TestWebhookHandler_ErrorHandling(t *testing.T) {
 		cfg.GitLabToken,
 		cfg.GitLabProjectID,
 		cfg.GitLabBranch,
+		false, // skipTLS
+		"Test User",
+		"test@example.com",
 	)
 	require.NoError(t, err)
 
 	yamlProc := service.NewYAMLProcessor(cfg.YAMLFilePath, cfg.ObjectPath)
 	processor := service.NewProcessor(repo, yamlProc)
-	webhookHandler := handler.NewWebhookHandler(processor)
+	webhookHandler := handler.NewWebhookHandler(processor, "")
 
 	// Test with valid request but invalid backend
 	reqBody := map[string]interface{}{

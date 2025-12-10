@@ -16,6 +16,8 @@ type Config struct {
 	ServerPort       string
 	WebhookAPIKey    string
 	GitSkipTLSVerify bool
+	GitUserName      string
+	GitUserEmail     string
 }
 
 func Load() (*Config, error) {
@@ -29,6 +31,8 @@ func Load() (*Config, error) {
 		ServerPort:       getEnv("SERVER_PORT", "8080"),
 		WebhookAPIKey:    os.Getenv("WEBHOOK_API_KEY"),
 		GitSkipTLSVerify: getEnvBool("GIT_SKIP_TLS_VERIFY", false),
+		GitUserName:      getEnv("GIT_USER_NAME", "SOAR Webhook"),
+		GitUserEmail:     getEnv("GIT_USER_EMAIL", "soar-webhook@localhost"),
 	}
 
 	if err := cfg.Validate(); err != nil {
