@@ -29,7 +29,7 @@ func TestProcessor_SanitizeTicketID(t *testing.T) {
 		{"TICKET\n123", "TICKET-123"},
 		{"TICKET\r123", "TICKET-123"},
 		{"---TICKET---123---", "TICKET-123"},
-		{"TICKET-123-very-long-name-that-should-be-truncated", "TICKET-123-very-long-name-that-should-be-truncat"},
+		{"TICKET-123-very-long-name-that-should-be-truncated-soon", "TICKET-123-very-long-name-that-should-be-truncated"},
 	}
 
 	for _, tt := range tests {

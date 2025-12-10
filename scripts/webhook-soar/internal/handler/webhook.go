@@ -71,6 +71,11 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req SOARWebhookRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Check if body too large
+		if err.Error() == "http: request body too large" {
+			h.respondError(w, http.StatusRequestEntityTooLarge, "request body too large", logger)
+			return
+		}
 		h.respondError(w, http.StatusBadRequest, fmt.Sprintf("invalid json: %v", err), logger)
 		return
 	}

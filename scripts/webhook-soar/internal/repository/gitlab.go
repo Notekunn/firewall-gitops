@@ -142,9 +142,10 @@ func (r *GitLabRepository) PushBranch(ctx context.Context, repoPath, branchName 
 	defer os.Remove(credScript)
 
 	// Use credential helper instead of embedding token
-	cmd := exec.CommandContext(ctx, "git", "push",
-		"--config", "credential.helper="+credScript,
-		"-u", "origin", branchName)
+	// Note: git config options must be passed before subcommand using -c flag
+	cmd := exec.CommandContext(ctx, "git",
+		"-c", "credential.helper="+credScript,
+		"push", "-u", "origin", branchName)
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git push failed: %w: %s", err, output)
