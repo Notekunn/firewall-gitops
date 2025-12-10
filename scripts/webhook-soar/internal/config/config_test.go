@@ -35,6 +35,17 @@ func TestLoad(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "with api key and skip tls",
+			envVars: map[string]string{
+				"GITLAB_TOKEN":        "test-token",
+				"GITLAB_PROJECT_ID":   "123",
+				"YAML_FILE_PATH":      "clusters/test/objects.yaml",
+				"WEBHOOK_API_KEY":     "secret-key",
+				"GIT_SKIP_TLS_VERIFY": "true",
+			},
+			wantErr: false,
+		},
+		{
 			name: "missing GITLAB_TOKEN",
 			envVars: map[string]string{
 				"GITLAB_PROJECT_ID": "123",
@@ -77,6 +88,7 @@ func TestLoad(t *testing.T) {
 			for _, key := range []string{
 				"GITLAB_URL", "GITLAB_TOKEN", "GITLAB_PROJECT_ID",
 				"GITLAB_BRANCH", "YAML_FILE_PATH", "OBJECT_PATH", "SERVER_PORT",
+				"WEBHOOK_API_KEY", "GIT_SKIP_TLS_VERIFY",
 			} {
 				os.Unsetenv(key)
 			}
@@ -137,6 +149,14 @@ func TestLoad(t *testing.T) {
 			}
 			if tt.envVars["SERVER_PORT"] == "" && cfg.ServerPort != "8080" {
 				t.Errorf("ServerPort = %v, want default 8080", cfg.ServerPort)
+			}
+			// Check new fields
+			if cfg.WebhookAPIKey != tt.envVars["WEBHOOK_API_KEY"] {
+				t.Errorf("WebhookAPIKey = %v, want %v", cfg.WebhookAPIKey, tt.envVars["WEBHOOK_API_KEY"])
+			}
+			wantSkipTLS := tt.envVars["GIT_SKIP_TLS_VERIFY"] == "true" || tt.envVars["GIT_SKIP_TLS_VERIFY"] == "1" || tt.envVars["GIT_SKIP_TLS_VERIFY"] == "yes"
+			if cfg.GitSkipTLSVerify != wantSkipTLS {
+				t.Errorf("GitSkipTLSVerify = %v, want %v", cfg.GitSkipTLSVerify, wantSkipTLS)
 			}
 		})
 	}

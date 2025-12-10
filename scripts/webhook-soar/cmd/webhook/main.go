@@ -37,6 +37,7 @@ func main() {
 		cfg.GitLabToken,
 		cfg.GitLabProjectID,
 		cfg.GitLabBranch,
+		cfg.GitSkipTLSVerify,
 	)
 	if err != nil {
 		slog.Error("failed to initialize gitlab repository", "error", err)
@@ -50,7 +51,7 @@ func main() {
 	processor := service.NewProcessor(repo, yamlProc)
 
 	// Initialize webhook handler
-	webhookHandler := handler.NewWebhookHandler(processor)
+	webhookHandler := handler.NewWebhookHandler(processor, cfg.WebhookAPIKey)
 
 	// Setup HTTP routes
 	mux := http.NewServeMux()

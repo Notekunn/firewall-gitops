@@ -3,27 +3,32 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
-	GitLabURL       string
-	GitLabToken     string
-	GitLabProjectID string
-	GitLabBranch    string
-	YAMLFilePath    string
-	ObjectPath      string
-	ServerPort      string
+	GitLabURL        string
+	GitLabToken      string
+	GitLabProjectID  string
+	GitLabBranch     string
+	YAMLFilePath     string
+	ObjectPath       string
+	ServerPort       string
+	WebhookAPIKey    string
+	GitSkipTLSVerify bool
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		GitLabURL:       getEnv("GITLAB_URL", "https://gitlab.com"),
-		GitLabToken:     os.Getenv("GITLAB_TOKEN"),
-		GitLabProjectID: os.Getenv("GITLAB_PROJECT_ID"),
-		GitLabBranch:    getEnv("GITLAB_BRANCH", "main"),
-		YAMLFilePath:    os.Getenv("YAML_FILE_PATH"),
-		ObjectPath:      getEnv("OBJECT_PATH", "ip_lists.global.blocklist"),
-		ServerPort:      getEnv("SERVER_PORT", "8080"),
+		GitLabURL:        getEnv("GITLAB_URL", "https://gitlab.com"),
+		GitLabToken:      os.Getenv("GITLAB_TOKEN"),
+		GitLabProjectID:  os.Getenv("GITLAB_PROJECT_ID"),
+		GitLabBranch:     getEnv("GITLAB_BRANCH", "main"),
+		YAMLFilePath:     os.Getenv("YAML_FILE_PATH"),
+		ObjectPath:       getEnv("OBJECT_PATH", "ip_lists.global.blocklist"),
+		ServerPort:       getEnv("SERVER_PORT", "8080"),
+		WebhookAPIKey:    os.Getenv("WEBHOOK_API_KEY"),
+		GitSkipTLSVerify: getEnvBool("GIT_SKIP_TLS_VERIFY", false),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -51,4 +56,12 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v := strings.ToLower(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	return v == "true" || v == "1" || v == "yes"
 }

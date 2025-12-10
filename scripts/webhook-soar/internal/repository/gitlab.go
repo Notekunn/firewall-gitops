@@ -19,9 +19,10 @@ type GitLabRepository struct {
 	projectID  string
 	baseBranch string
 	repoURL    string
+	skipTLS    bool
 }
 
-func NewGitLabRepository(url, token, projectID, branch string) (*GitLabRepository, error) {
+func NewGitLabRepository(url, token, projectID, branch string, skipTLS bool) (*GitLabRepository, error) {
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitlab client: %w", err)
@@ -33,12 +34,17 @@ func NewGitLabRepository(url, token, projectID, branch string) (*GitLabRepositor
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
+	if skipTLS {
+		slog.Warn("git TLS verification disabled - use only for self-signed certs in internal environments")
+	}
+
 	return &GitLabRepository{
 		client:     client,
 		token:      token,
 		projectID:  projectID,
 		baseBranch: branch,
 		repoURL:    project.HTTPURLToRepo,
+		skipTLS:    skipTLS,
 	}, nil
 }
 
@@ -70,11 +76,16 @@ func (r *GitLabRepository) CloneToTemp(ctx context.Context) (string, error) {
 	defer os.Remove(credScript)
 
 	// Use credential helper instead of embedding token
-	cmd := exec.CommandContext(ctx, "git", "clone",
+	args := []string{}
+	if r.skipTLS {
+		args = append(args, "-c", "http.sslVerify=false")
+	}
+	args = append(args, "clone",
 		"--branch", r.baseBranch,
 		"--depth", "1",
 		"--config", "credential.helper="+credScript,
 		r.repoURL, tempDir)
+	cmd := exec.CommandContext(ctx, "git", args...)
 
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("git clone failed: %w: %s", err, output)
@@ -143,9 +154,12 @@ func (r *GitLabRepository) PushBranch(ctx context.Context, repoPath, branchName 
 
 	// Use credential helper instead of embedding token
 	// Note: git config options must be passed before subcommand using -c flag
-	cmd := exec.CommandContext(ctx, "git",
-		"-c", "credential.helper="+credScript,
-		"push", "-u", "origin", branchName)
+	args := []string{"-c", "credential.helper=" + credScript}
+	if r.skipTLS {
+		args = append(args, "-c", "http.sslVerify=false")
+	}
+	args = append(args, "push", "-u", "origin", branchName)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = repoPath
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git push failed: %w: %s", err, output)

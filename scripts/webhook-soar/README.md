@@ -119,6 +119,8 @@ SOAR Alert → HTTP POST → Webhook Handler → Git Pull → YAML Update → Gi
 - `GITLAB_BRANCH` - Target branch for merge requests (default: `main`)
 - `OBJECT_PATH` - YAML path to IP blocklist (default: `ip_lists.global.blocklist`)
 - `SERVER_PORT` - HTTP server port (default: `8080`)
+- `WEBHOOK_API_KEY` - Optional API key for request authentication (default: empty, disabled)
+- `GIT_SKIP_TLS_VERIFY` - Skip TLS verification for git operations (default: `false`)
 
 ## Build and Run
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -18,10 +19,11 @@ type Processor interface {
 
 type WebhookHandler struct {
 	processor Processor
+	apiKey    string
 }
 
-func NewWebhookHandler(processor *service.Processor) *WebhookHandler {
-	return &WebhookHandler{processor: processor}
+func NewWebhookHandler(processor *service.Processor, apiKey string) *WebhookHandler {
+	return &WebhookHandler{processor: processor, apiKey: apiKey}
 }
 
 // SOAR webhook request body
@@ -63,6 +65,15 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		h.respondError(w, http.StatusUnsupportedMediaType, "content-type must be application/json", logger)
 		return
+	}
+
+	// Validate API key if configured
+	if h.apiKey != "" {
+		providedKey := r.Header.Get("X-API-Key")
+		if subtle.ConstantTimeCompare([]byte(providedKey), []byte(h.apiKey)) != 1 {
+			h.respondError(w, http.StatusUnauthorized, "invalid or missing API key", logger)
+			return
+		}
 	}
 
 	// Limit request body size (1MB)

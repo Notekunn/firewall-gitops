@@ -146,3 +146,68 @@ func TestWebhookHandler_BodySizeLimit(t *testing.T) {
 
 	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
 }
+
+func TestWebhookHandler_APIKeyValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		apiKey      string
+		providedKey string
+		wantStatus  int
+	}{
+		{
+			name:        "no api key required - accepts request",
+			apiKey:      "",
+			providedKey: "",
+			wantStatus:  http.StatusBadRequest, // passes auth, fails on missing fields
+		},
+		{
+			name:        "no api key required - ignores provided key",
+			apiKey:      "",
+			providedKey: "some-key",
+			wantStatus:  http.StatusBadRequest, // passes auth, fails on missing fields
+		},
+		{
+			name:        "api key required - correct key",
+			apiKey:      "secret-key",
+			providedKey: "secret-key",
+			wantStatus:  http.StatusBadRequest, // passes auth, fails on missing fields
+		},
+		{
+			name:        "api key required - wrong key",
+			apiKey:      "secret-key",
+			providedKey: "wrong-key",
+			wantStatus:  http.StatusUnauthorized,
+		},
+		{
+			name:        "api key required - missing key",
+			apiKey:      "secret-key",
+			providedKey: "",
+			wantStatus:  http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &WebhookHandler{processor: nil, apiKey: tt.apiKey}
+
+			req := httptest.NewRequest("POST", "/webhook", strings.NewReader("{}"))
+			req.Header.Set("Content-Type", "application/json")
+			if tt.providedKey != "" {
+				req.Header.Set("X-API-Key", tt.providedKey)
+			}
+
+			w := httptest.NewRecorder()
+			h.HandleWebhook(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+
+			if tt.wantStatus == http.StatusUnauthorized {
+				var resp map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &resp)
+				assert.NoError(t, err)
+				assert.Equal(t, false, resp["success"])
+				assert.Equal(t, "invalid or missing API key", resp["message"])
+			}
+		})
+	}
+}
