@@ -24,7 +24,7 @@ func TestYAMLProcessor_AddIP(t *testing.T) {
 			yamlContent: `ip_lists:
   global:
     blocklist:
-      - "10.0.0.1/32"
+      - "10.0.0.1"
 `,
 			objectPath: "ip_lists.global.blocklist",
 			ip:         "10.0.0.2",
@@ -35,7 +35,7 @@ func TestYAMLProcessor_AddIP(t *testing.T) {
 			yamlContent: `ip_lists:
   global:
     blocklist:
-      - "10.0.0.1/32"
+      - "10.0.0.1"
 `,
 			objectPath: "ip_lists.global.blocklist",
 			ip:         "10.0.0.1",
@@ -46,10 +46,10 @@ func TestYAMLProcessor_AddIP(t *testing.T) {
 			yamlContent: `ip_lists:
   global:
     blocklist:
-      - "10.0.0.1/32"
+      - "10.0.0.1"
 `,
 			objectPath: "ip_lists.global.blocklist",
-			ip:         "10.0.0.1/32",
+			ip:         "10.0.0.1",
 			expectAdd:  false,
 		},
 		{
@@ -142,12 +142,9 @@ func TestYAMLProcessor_AddIP(t *testing.T) {
 				list := current[parts[len(parts)-1]].([]interface{})
 				assert.Greater(t, len(list), 0)
 
-				// Check if IP with /32 suffix is in list
+				// Check if IP with  suffix is in list
 				found := false
 				expectedIP := tt.ip
-				if !strings.Contains(expectedIP, "/") {
-					expectedIP = expectedIP + "/32"
-				}
 				for _, item := range list {
 					if item == expectedIP {
 						found = true
@@ -167,7 +164,7 @@ ip_lists:
   global:
     # Block malicious IPs
     blocklist:
-      - "10.0.0.1/32"  # First blocked IP
+      - "10.0.0.1"  # First blocked IP
 `
 
 	tempDir, err := os.MkdirTemp("", "yaml-comment-test-*")
@@ -193,14 +190,14 @@ ip_lists:
 	assert.Contains(t, contentStr, "# Block malicious IPs")
 	assert.Contains(t, contentStr, "# First blocked IP")
 	// Check new IP is added
-	assert.Contains(t, contentStr, `"10.0.0.2/32"`)
+	assert.Contains(t, contentStr, `"10.0.0.2"`)
 }
 
 func TestYAMLProcessor_Indentation(t *testing.T) {
 	yamlContent := `ip_lists:
   global:
     blocklist:
-      - "10.0.0.1/32"
+      - "10.0.0.1"
 `
 
 	tempDir, err := os.MkdirTemp("", "yaml-indent-test-*")
@@ -239,7 +236,7 @@ func TestValidateIP(t *testing.T) {
 		wantErr bool
 	}{
 		{"10.0.0.1", false},
-		{"10.0.0.1/32", false},
+		{"10.0.0.1", false},
 		{"192.168.1.1", false},
 		{"255.255.255.255", false},
 		{"0.0.0.0", false},
@@ -267,7 +264,7 @@ func TestNormalizeIP(t *testing.T) {
 		output string
 	}{
 		{"10.0.0.1", "10.0.0.1"},
-		{"10.0.0.1/32", "10.0.0.1"},
+		{"10.0.0.1", "10.0.0.1"},
 		{"192.168.1.1/24", "192.168.1.1"},
 		{"0.0.0.0/0", "0.0.0.0"},
 	}

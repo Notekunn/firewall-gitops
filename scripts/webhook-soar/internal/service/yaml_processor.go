@@ -127,15 +127,15 @@ func (p *YAMLProcessor) containsIP(listNode *yaml.Node, ip string) bool {
 
 // appendIP adds IP to list
 func (p *YAMLProcessor) appendIP(listNode *yaml.Node, ip string) {
-	// Add /32 suffix if not present
-	ipWithCIDR := ip
-	if !strings.Contains(ip, "/") {
-		ipWithCIDR = ip + "/32"
-	}
+	// // Add /32 suffix if not present
+	// ipWithCIDR := ip
+	// if !strings.Contains(ip, "/") {
+	// 	ipWithCIDR = ip + "/32"
+	// }
 
 	newNode := &yaml.Node{
 		Kind:  yaml.ScalarNode,
-		Value: ipWithCIDR,
+		Value: ip,
 		Style: yaml.DoubleQuotedStyle,
 	}
 

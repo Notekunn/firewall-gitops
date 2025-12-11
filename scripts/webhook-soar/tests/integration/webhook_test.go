@@ -48,7 +48,7 @@ func TestWebhookHandler_Integration(t *testing.T) {
 	yamlContent := `
 addresses:
   - name: existing-ip
-    ip_netmask: 192.168.1.100/32
+    ip_netmask: 192.168.1.100
     description: "Already blocked IP"
 `
 	err = os.WriteFile(yamlPath, []byte(yamlContent), 0644)
@@ -164,7 +164,7 @@ func TestWebhookHandler_DuplicateIP(t *testing.T) {
 	yamlContent := fmt.Sprintf(`
 addresses:
   - name: pre-existing
-    ip_netmask: %s/32
+    ip_netmask: %s
     description: "Pre-existing IP"
 `, existingIP)
 
