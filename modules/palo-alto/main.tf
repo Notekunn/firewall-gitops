@@ -2,7 +2,7 @@ terraform {
   required_providers {
     panos = {
       source  = "paloaltonetworks/panos"
-      version = ">= 2.0.5"
+      version = "~> 2.0.9"
     }
   }
 }
@@ -42,7 +42,9 @@ resource "panos_service" "service_objects" {
 
 resource "panos_security_policy_rules" "firewall_rules" {
   location   = local.location
-  position   = var.position
+  position = {
+    where = "last"
+  }
   depends_on = [panos_addresses.address_objects, panos_service.service_objects]
   rules = [
     for rule in var.firewall_rules : {
@@ -59,11 +61,10 @@ resource "panos_security_policy_rules" "firewall_rules" {
       destination_zones     = rule.destination_zones
       source_addresses      = rule.source_addresses
       destination_addresses = rule.destination_addresses
-      applications          = rule.applications
+      applications          = try(rule.applications, ["any"])
       services              = rule.services
       log_start             = rule.log_start
       log_end               = rule.log_end
-      log_setting           = try(var.global.log_setting, null)
       profile_setting = rule.profile_setting != null ? {
         group = rule.profile_setting.group
         profiles = rule.profile_setting.profiles != null ? {

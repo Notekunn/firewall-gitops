@@ -170,7 +170,16 @@
 										"log_type": {
 											"type": "string",
 											"description": "Type of log to forward",
-											"enum": ["traffic", "threat", "wildfire", "url", "data", "tunnel", "auth", "decryption"]
+											"enum": [
+												"traffic",
+												"threat",
+												"wildfire",
+												"url",
+												"data",
+												"tunnel",
+												"auth",
+												"decryption"
+											]
 										},
 										"send_to_panorama": {
 											"type": "boolean",
@@ -250,10 +259,7 @@
 						"properties": { "type": { "const": "palo-alto" } }
 					},
 					"then": {
-						"oneOf": [
-							{ "required": ["panorama"] },
-							{ "required": ["standalone"] }
-						]
+						"oneOf": [{ "required": ["panorama"] }, { "required": ["standalone"] }]
 					}
 				},
 				{

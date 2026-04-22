@@ -5,11 +5,16 @@
 	"description": "Schema for firewall rules configuration files in the Firewall GitOps project",
 	"type": "object",
 	"additionalProperties": false,
-	"anyOf": [{ "required": ["addresses"] }, { "required": ["services"] }, { "required": ["rules"] }, { "required": ["ip_lists"] }],
+	"anyOf": [
+		{ "required": ["addresses"] },
+		{ "required": ["services"] },
+		{ "required": ["rules"] },
+		{ "required": ["ip_lists"] }
+	],
 	"properties": {
 		"ip_lists": {
 			"type": "object",
-			"description": "IP lists for F5 WAF and CheckPoint blocklist and whitelist",
+			"description": "IP lists for F5 WAF blocklist and whitelist",
 			"additionalProperties": false,
 			"properties": {
 				"global": {
@@ -221,14 +226,7 @@
 		"security_rule": {
 			"type": "object",
 			"description": "Security policy rule definition based on firewall_rules variable",
-			"required": [
-				"name",
-				"source_zones",
-				"destination_zones",
-				"source_addresses",
-				"destination_addresses",
-				"services"
-			],
+			"required": ["name", "source_addresses", "destination_addresses", "services"],
 			"additionalProperties": false,
 			"properties": {
 				"name": {
@@ -330,7 +328,7 @@
 				"action": {
 					"type": "string",
 					"description": "Rule action",
-					"enum": ["allow", "deny", "drop", "reset-client", "reset-server", "reset-both"],
+					"enum": ["allow", "deny", "Accept", "Drop", "reset-client", "reset-server", "reset-both"],
 					"default": "allow"
 				},
 				"log_start": {

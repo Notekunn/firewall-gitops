@@ -2,7 +2,7 @@ terraform {
   required_providers {
     bigip = {
       source  = "F5Networks/bigip"
-      version = "~> 1.24.0"
+      version = "~> 1.24.1"
     }
   }
 }
@@ -95,16 +95,16 @@ resource "bigip_ltm_irule" "ip_filter" {
 
   irule = <<-EOF
 when HTTP_REQUEST {
-  set xff [HTTP::header X-Forwarded-For]
-  set host [HTTP::host]
+  set xff [HTTP::header CF-Connecting-IP]
+  #set host [HTTP::host]
 
-  # Whitelist first (global + domain)
-  if { [class match $xff equals global_whitelist] } { return }
-  if { [class match $xff equals $${host}_whitelist] } { return }
-
-  # Then blocklist
-  if { [class match $xff equals global_blocklist] } { reject }
-  if { [class match $xff equals $${host}_blocklist] } { reject }
+  # blocklist
+  if { [class match $xff equals global_blocklist] } { 
+    log local0. "Blocked client IP $xff (matched Data Group)"
+    HTTP::respond 403 content "Access denied"
+    return
+  }
+  #if { [class match $xff equals $${host}_blocklist] } { reject }
 }
 EOF
 

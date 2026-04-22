@@ -45,13 +45,6 @@ locals {
     per_session             = false
   })
 
-  # Policy installation settings
-  auto_install_policy                    = try(var.global.auto_install_policy, false)
-  policy_package                         = try(var.global.policy_package, null)
-  policy_targets                         = try(var.global.policy_targets, [])
-  wait_for_task_timeout                  = try(var.global.wait_for_task_timeout, 30)
-  install_on_all_cluster_members_or_fail = try(var.global.install_on_all_cluster_members_or_fail, true)
-
   # IP Lists processing - Global only
   whitelist_ips = try(var.ip_lists.global.whitelist, [])
   blocklist_ips = try(var.ip_lists.global.blocklist, [])
@@ -63,8 +56,6 @@ locals {
   # Combine and deduplicate all IPs
   all_unique_ips = distinct(concat(local.validated_whitelist, local.validated_blocklist))
 
-  # Build membership map: ip -> which lists it belongs to
-  # Use sets for O(1) lookups instead of O(n) contains()
   whitelist_set = toset(local.validated_whitelist)
   blocklist_set = toset(local.validated_blocklist)
 
@@ -189,7 +180,11 @@ resource "checkpoint_management_host" "iplist_hosts" {
 
   name         = each.value.name
   ipv4_address = each.value.ipv4_address
-  comments = "Auto-generated from ip_lists"
+  comments = "Auto-generated from ip_lists: ${join(", ", compact([
+    each.value.in_whitelist ? "whitelist" : "",
+    each.value.in_blocklist ? "blocklist" : ""
+  ]))}"
+  
   color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
     each.value.in_whitelist ? "green" : "red"
   )
@@ -205,7 +200,11 @@ resource "checkpoint_management_network" "iplist_networks" {
   name         = each.value.name
   subnet4      = each.value.subnet
   mask_length4 = each.value.mask
-  comments     = "Auto-generated from ip_lists"
+  comments = "Auto-generated from ip_lists: ${join(", ", compact([
+    each.value.in_whitelist ? "whitelist" : "",
+    each.value.in_blocklist ? "blocklist" : ""
+  ]))}"
+
   color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
     each.value.in_whitelist ? "green" : "red"
   )
@@ -216,7 +215,7 @@ resource "checkpoint_management_network" "iplist_networks" {
 
 # Whitelist group - always created, may be empty
 resource "checkpoint_management_group" "whitelist_group" {
-  name     = "whitelist_group"
+  name     = "WhiteList_IP_Group"
   members  = local.whitelist_members
   comments = "Auto-generated whitelist group from ip_lists"
   color    = "green"
@@ -232,7 +231,7 @@ resource "checkpoint_management_group" "whitelist_group" {
 
 # Blocklist group - always created, may be empty
 resource "checkpoint_management_group" "blocklist_group" {
-  name     = "blocklist_group"
+  name     = "BlockList_IP_Group"
   members  = local.blocklist_members
   comments = "Auto-generated blocklist group from ip_lists"
   color    = "red"
@@ -295,7 +294,11 @@ resource "checkpoint_management_access_rule" "rules" {
     checkpoint_management_host.hosts,
     checkpoint_management_network.networks,
     checkpoint_management_service_tcp.tcp_services,
-    checkpoint_management_service_udp.udp_services
+    checkpoint_management_service_udp.udp_services,
+    checkpoint_management_host.iplist_hosts,
+    checkpoint_management_network.iplist_networks,
+    checkpoint_management_group.whitelist_group,
+    checkpoint_management_group.blocklist_group
   ]
 }
 
