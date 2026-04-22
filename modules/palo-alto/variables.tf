@@ -97,3 +97,35 @@ variable "position" {
     error_message = "pivot is required when where is after or before"
   }
 }
+
+variable "global" {
+  type = object({
+    log_setting = optional(string, null)
+  })
+  default     = {}
+  description = "Global rule-level defaults (fallbacks)"
+}
+
+variable "firewall_schedules" {
+  description = "PAN-OS schedule objects"
+  type = list(object({
+    name             = string
+    disable_override = optional(string, "yes")
+    schedule_type = object({
+      non_recurring = optional(list(string), null)
+      recurring = optional(object({
+        daily = optional(list(string), null)
+        weekly = optional(object({
+          monday    = optional(list(string), null)
+          tuesday   = optional(list(string), null)
+          wednesday = optional(list(string), null)
+          thursday  = optional(list(string), null)
+          friday    = optional(list(string), null)
+          saturday  = optional(list(string), null)
+          sunday    = optional(list(string), null)
+        }), null)
+      }), null)
+    })
+  }))
+  default = []
+}

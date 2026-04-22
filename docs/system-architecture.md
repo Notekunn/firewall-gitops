@@ -197,9 +197,19 @@ resource "panos_service" "service_objects" {
   destination_port = each.value.destination_port
 }
 
+resource "panos_schedule" "schedules" {
+  for_each = { for s in var.firewall_schedules : s.name => s }
+  name             = each.value.name
+  schedule_type    = each.value.schedule_type
+}
+
 resource "panos_security_policy_rules" "rules" {
-  depends_on = [panos_addresses.address_objects, panos_service.service_objects]
-  # ... rule configuration
+  depends_on = [
+    panos_addresses.address_objects,
+    panos_service.service_objects,
+    panos_schedule.schedules,
+  ]
+  # ... rule configuration (schedule + log_setting now passed through)
 }
 ```
 
@@ -405,6 +415,7 @@ SERVER_PORT="8080"           # HTTP server port
 │      var.firewall_addresses (50 addresses)                   │
 │      var.firewall_services (30 services)                     │
 │      var.firewall_rules (100 rules)                          │
+│      var.firewall_schedules (N schedules)                    │
 │      ↓                                                        │
 │  [2] Create address objects                                   │
 │      for_each = { for addr in addresses : addr.name => addr }│
@@ -414,7 +425,11 @@ SERVER_PORT="8080"           # HTTP server port
 │      for_each = { for svc in services : svc.name => svc }    │
 │      panos_service.service_objects                           │
 │      ↓                                                        │
-│  [4] Create rules (depends on 2 & 3)                          │
+│  [4] Create schedule objects                                  │
+│      for_each = { for s in schedules : s.name => s }         │
+│      panos_schedule.schedules                                │
+│      ↓                                                        │
+│  [5] Create rules (depends on 2, 3 & 4)                       │
 │      panos_security_policy_rules.rules                       │
 └──────────────────────┬───────────────────────────────────────┘
                        │

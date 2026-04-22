@@ -192,18 +192,17 @@ variable "cluster_name" {
 2. **Service Objects** (`panos_service`, line 28)
    - TCP/UDP services with source/destination ports
 
-3. **Security Policy Rules** (`panos_security_policy_rules`, line 43)
-   - Depends on addresses and services (explicit `depends_on`)
+3. **Security Policy Rules** (`panos_security_policy_rules`)
+   - Depends on addresses, services, and schedules (explicit `depends_on`)
    - Supports security profile groups and individual profiles
-   - Log settings per-rule or global
+   - Rule-level `schedule` attr (reference to `panos_schedule` object)
+   - Rule-level `log_setting` attr with cluster-global fallback (`firewall.log_setting`)
 
-4. **Log Forwarding Profiles** (Phase 1 Complete, Phase 2 In Progress)
-   - Variable: `log_forwarding_profiles` (defined in `variables.tf` lines 101-127)
-   - Schema: Validated in `schemas/cluster.schema.json` lines 134-224
-   - Supports 8 log types: traffic, threat, wildfire, url, data, tunnel, auth, decryption
-   - Destinations: syslog, email, HTTP, SNMP, Panorama
-   - **Phase 1:** Schema and variable definitions ✅ Complete
-   - **Phase 2:** YAML parser integration (planned)
+4. **Schedule Objects** (`panos_schedule`, `for_each` over `var.firewall_schedules`)
+   - YAML-to-Terraform schedule creation
+   - Supports `non_recurring` (absolute `YYYY/MM/DD@HH:MM-...` ranges) or `recurring` (`daily` / `weekly` weekday maps)
+   - Location transform: panorama → `{device_group}` / standalone → `{vsys}`; shared rulebase not yet supported
+   - `disable_override = "yes"` by default
 
 **Key Pattern:**
 ```hcl
@@ -433,11 +432,7 @@ clusters/development/
 **Key Validations:**
 - `firewall.type` enum: `palo-alto`, `checkpoint`, `fortinet`, `f5-waf`
 - PAN-OS: Requires either `panorama` or `standalone` (mutually exclusive)
-- **NEW:** `log_forwarding_profiles` with comprehensive validation:
-  - Profile name validation (1-63 chars, alphanumeric/hyphens/underscores)
-  - Log type enum validation (8 supported types)
-  - Destination profile validation (syslog, email, HTTP, SNMP)
-  - Required field enforcement and defaults
+- PAN-OS: Global `firewall.log_setting` (references a pre-existing log forwarding profile on the firewall)
 - CheckPoint: Requires `checkpoint` config with `layer_name`
 - F5: Requires `f5` config with `partition`
 - Position: `where`, `pivot`, `directly` fields
@@ -673,7 +668,7 @@ ip_lists:
 
 **Terraform Providers:**
 ```hcl
-paloaltonetworks/panos ~> 2.0.5
+paloaltonetworks/panos ~> 2.0.10
 CheckPointSW/checkpoint ~> 2.11.0
 F5Networks/bigip ~> 1.24.0
 ```

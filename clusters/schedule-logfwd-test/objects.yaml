@@ -1,4 +1,20 @@
-# Test objects for log forwarding profiles testing
+# Test objects: schedules + rule-level schedule/log_setting refs
+
+schedules:
+  - name: business-hours
+    schedule_type:
+      recurring:
+        weekly:
+          monday: ['09:00-17:00']
+          tuesday: ['09:00-17:00']
+          wednesday: ['09:00-17:00']
+          thursday: ['09:00-17:00']
+          friday: ['09:00-17:00']
+
+  - name: maintenance-window
+    schedule_type:
+      non_recurring:
+        - '2026/05/01@00:00-2026/05/02@06:00'
 
 addresses:
   - name: 'test-web-server'
@@ -32,22 +48,24 @@ services:
     tags: ['database']
 
 rules:
-  - name: 'allow-https-outbound'
-    description: 'Allow HTTPS outbound traffic to external API'
+  - name: 'allow-business-hours-web'
+    description: 'Allow HTTPS outbound only during business hours'
     rule_type: 'universal'
     source_zones: ['trust']
     destination_zones: ['untrust']
-    source_addresses: ['any']
+    source_addresses: ['test-web-server']
     destination_addresses: ['external-api']
     applications: ['web-browsing', 'ssl']
     services: ['https-traffic']
+    schedule: 'business-hours'
+    log_setting: 'siem-fwd-profile'
     action: 'allow'
     log_start: false
     log_end: true
     tags: ['test', 'outbound']
 
-  - name: 'allow-database-access'
-    description: 'Allow application to access database'
+  - name: 'allow-db-access-default-logfwd'
+    description: 'DB access; log_setting falls back to cluster global'
     rule_type: 'universal'
     source_zones: ['trust']
     destination_zones: ['trust']

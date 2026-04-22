@@ -2,11 +2,11 @@ terraform {
   required_providers {
     panos = {
       source  = "paloaltonetworks/panos"
-      version = "~> 2.0.5"
+      version = "~> 2.0.10"
     }
     checkpoint = {
       source  = "CheckPointSW/checkpoint"
-      version = "~> 2.11.0"
+      version = "~> 2.12.0"
     }
     bigip = {
       source  = "F5Networks/bigip"
@@ -57,6 +57,11 @@ locals {
   rules_from_multi  = flatten([for data in local.objects_data_list : try(data.rules, [])])
   firewall_rules    = concat(local.rules_from_single, local.rules_from_multi)
 
+  # Merge schedules from all files
+  schedules_from_single = try(local.single_file_data.schedules, [])
+  schedules_from_multi  = flatten([for data in local.objects_data_list : try(data.schedules, [])])
+  firewall_schedules    = concat(local.schedules_from_single, local.schedules_from_multi)
+
   # Extract firewall configuration
   firewall_config = local.cluster_config.firewall
 
@@ -100,9 +105,6 @@ locals {
   )
   f5_ip_lists = merge(local.ip_lists_from_single, local.ip_lists_from_multi)
 
-  # Log forwarding profiles from firewall config
-  log_forwarding_profiles = try(local.firewall_config.log_forwarding_profiles, [])
-
   # Position configuration
   position_config = {
     where    = try(local.cluster_config.position.where, "last")
@@ -125,14 +127,14 @@ module "palo_alto_firewall" {
 
   source = "../modules/palo-alto"
 
-  firewall_rules          = local.firewall_rules
-  firewall_addresses      = local.firewall_addresses
-  firewall_services       = local.firewall_services
-  log_forwarding_profiles = local.log_forwarding_profiles
-  position                = local.position_config
-  location                = local.location_config
+  firewall_rules     = local.firewall_rules
+  firewall_addresses = local.firewall_addresses
+  firewall_services  = local.firewall_services
+  firewall_schedules = local.firewall_schedules
+  position           = local.position_config
+  location           = local.location_config
   global = {
-    log_setting = try(local.cluster_config.log_setting, null)
+    log_setting = try(local.firewall_config.log_setting, null)
   }
 }
 
