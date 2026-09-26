@@ -184,7 +184,7 @@ resource "checkpoint_management_host" "iplist_hosts" {
     each.value.in_whitelist ? "whitelist" : "",
     each.value.in_blocklist ? "blocklist" : ""
   ]))}"
-  
+
   color = each.value.in_whitelist && each.value.in_blocklist ? "orange" : (
     each.value.in_whitelist ? "green" : "red"
   )

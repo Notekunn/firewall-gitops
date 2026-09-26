@@ -2,7 +2,7 @@ terraform {
   required_providers {
     panos = {
       source  = "paloaltonetworks/panos"
-      version = "~> 2.0.10"
+      version = "2.0.13"
     }
   }
 }
@@ -68,7 +68,9 @@ resource "panos_schedule" "schedules" {
 resource "panos_security_policy_rules" "firewall_rules" {
   location = local.location
   position = {
-    where = "last"
+    where    = var.position.where
+    pivot    = var.position.pivot
+    directly = var.position.directly
   }
   depends_on = [
     panos_addresses.address_objects,
@@ -89,6 +91,7 @@ resource "panos_security_policy_rules" "firewall_rules" {
       source_zones          = rule.source_zones
       destination_zones     = rule.destination_zones
       source_addresses      = rule.source_addresses
+      source_users          = rule.source_users
       destination_addresses = rule.destination_addresses
       applications          = rule.applications
       services              = rule.services
@@ -96,6 +99,8 @@ resource "panos_security_policy_rules" "firewall_rules" {
       log_end               = rule.log_end
       log_setting           = rule.log_setting != null ? rule.log_setting : var.global.log_setting
       schedule              = rule.schedule
+      audit_comment_wo      = rule.change != null ? "${rule.change.ticket}: ${rule.change.comment}" : null
+      audit_comment_version = rule.change != null ? tostring(rule.change.revision) : null
       profile_setting = rule.profile_setting != null ? {
         group = rule.profile_setting.group
         profiles = rule.profile_setting.profiles != null ? {
@@ -111,4 +116,3 @@ resource "panos_security_policy_rules" "firewall_rules" {
     }
   ]
 }
-

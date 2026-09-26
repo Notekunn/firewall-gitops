@@ -454,7 +454,7 @@ terraform {
 
 **Runtime Backend Config:**
 ```bash
-terraform init \
+tofu init \
   -backend-config="address=$GITLAB_API_URL/projects/$PROJECT_ID/terraform/state/firewall-gitops-${CLUSTER}" \
   -backend-config="lock_address=$GITLAB_API_URL/projects/$PROJECT_ID/terraform/state/firewall-gitops-${CLUSTER}/lock" \
   -backend-config="unlock_address=$GITLAB_API_URL/projects/$PROJECT_ID/terraform/state/firewall-gitops-${CLUSTER}/lock" \
@@ -775,7 +775,7 @@ GitLab State:
 **Automatic Parallelization:**
 - Independent resources execute in parallel
 - Default: 10 parallel operations
-- Configurable: `terraform apply -parallelism=20`
+- Configurable: `tofu apply -parallelism=20`
 
 **Resource Graph:**
 ```
@@ -850,10 +850,10 @@ git push origin main
 **Manual:**
 ```bash
 # Export current state
-terraform state pull > backup-$(date +%Y%m%d).json
+tofu state pull > backup-$(date +%Y%m%d).json
 
 # Import state from backup
-terraform state push backup-20250326.json
+tofu state push backup-20250326.json
 ```
 
 ---

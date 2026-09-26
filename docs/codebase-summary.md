@@ -71,13 +71,13 @@ validate_yaml:
   - python scripts/validate_yaml.py
 
 terraform_fmt_<cluster>:
-  - terraform fmt -check -recursive
+  - tofu fmt -check -recursive
 
 plan_<cluster>:
-  - terraform plan -out=plan-<cluster>.tfplan
+  - tofu plan -out=plan-<cluster>.tfplan
 
 apply_<cluster>:
-  - terraform apply plan-<cluster>.tfplan
+  - tofu apply plan-<cluster>.tfplan
 ```
 
 #### `CLAUDE.md`
@@ -837,7 +837,7 @@ terraform {
 
 **Runtime Configuration:**
 ```bash
-terraform init \
+tofu init \
   -backend-config="address=$GITLAB_API_URL/projects/$GITLAB_PROJECT_ID/terraform/state/firewall-gitops-${CLUSTER_NAME}" \
   -backend-config="lock_address=$GITLAB_API_URL/projects/$GITLAB_PROJECT_ID/terraform/state/firewall-gitops-${CLUSTER_NAME}/lock" \
   -backend-config="unlock_address=$GITLAB_API_URL/projects/$GITLAB_PROJECT_ID/terraform/state/firewall-gitops-${CLUSTER_NAME}/lock" \
@@ -871,12 +871,12 @@ terraform init \
 - Validates: YAML syntax, required fields, data types, regex patterns
 
 **Layer 2: Terraform Format Check**
-- Tool: `terraform fmt -check -recursive`
+- Tool: `tofu fmt -check -recursive`
 - When: On every commit (validate stage)
 - Validates: Terraform formatting consistency
 
 **Layer 3: Terraform Validate**
-- Tool: `terraform validate`
+- Tool: `tofu validate`
 - When: On every commit (validate stage)
 - Validates: Terraform syntax, variable references, resource dependencies
 
@@ -886,7 +886,7 @@ terraform init \
 - Validates: Security best practices, compliance (PCI-DSS, NIST, CIS)
 
 **Layer 5: Terraform Plan Review**
-- Tool: `terraform plan`
+- Tool: `tofu plan`
 - When: On merge request (plan stage)
 - Validates: Resource changes preview, human review before apply
 
@@ -1069,7 +1069,7 @@ Documentation: ~1,000 lines (22%)
 
 **Issue:** `Error: Resource already exists`
 **Cause:** Terraform state out of sync with firewall
-**Fix:** `terraform import` the existing resource OR delete from firewall
+**Fix:** `tofu import` the existing resource OR delete from firewall
 
 **Issue:** `Error: State locked by another process`
 **Cause:** Previous pipeline job still running or crashed without unlocking

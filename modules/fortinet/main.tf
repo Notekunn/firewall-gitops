@@ -2,7 +2,7 @@ terraform {
   required_providers {
     fortios = {
       source  = "fortinetdev/fortios"
-      version = ">= 1.23.0"
+      version = "1.26.1"
     }
   }
 }
@@ -21,6 +21,23 @@ locals {
     drop   = "deny"
     reset  = "deny"
   }
+  recurring_schedules = { for schedule in var.firewall_schedules : schedule.name => schedule if try(schedule.schedule_type.recurring, null) != null }
+  onetime_schedules   = { for schedule in var.firewall_schedules : schedule.name => schedule if try(schedule.schedule_type.non_recurring, null) != null }
+}
+
+resource "fortios_firewallschedule_recurring" "schedules" {
+  for_each = local.recurring_schedules
+  name     = each.key
+  day      = try(each.value.schedule_type.recurring.weekly != null ? join(" ", keys(each.value.schedule_type.recurring.weekly)) : "daily", "daily")
+  start    = split("-", try(each.value.schedule_type.recurring.daily[0], values(each.value.schedule_type.recurring.weekly)[0][0]))[0]
+  end      = split("-", try(each.value.schedule_type.recurring.daily[0], values(each.value.schedule_type.recurring.weekly)[0][0]))[1]
+}
+
+resource "fortios_firewallschedule_onetime" "schedules" {
+  for_each = local.onetime_schedules
+  name     = each.key
+  start    = replace(split("-", each.value.schedule_type.non_recurring[0])[0], "@", " ")
+  end      = replace(split("-", each.value.schedule_type.non_recurring[0])[1], "@", " ")
 }
 
 resource "fortios_firewall_address" "addresses" {
@@ -51,15 +68,17 @@ resource "fortios_firewallservice_custom" "services" {
 resource "fortios_firewall_policy" "rules" {
   for_each = local.rule_map
 
-  name             = each.value.name
-  comments         = trimspace(each.value.description) != "" ? each.value.description : null
-  action           = lookup(local.action_map, lower(each.value.action), "accept")
-  schedule         = coalesce(each.value.schedule, "always")
-  status           = each.value.disabled ? "disable" : "enable"
-  logtraffic       = each.value.log_end ? "all" : each.value.log_start ? "utm" : "disable"
-  logtraffic_start = each.value.log_start ? "enable" : "disable"
-  srcaddr_negate   = each.value.negate_source ? "enable" : "disable"
-  dstaddr_negate   = each.value.negate_destination ? "enable" : "disable"
+  name               = each.value.name
+  comments           = trimspace(each.value.description) != "" ? each.value.description : null
+  action             = lookup(local.action_map, lower(each.value.action), "accept")
+  schedule           = coalesce(each.value.schedule, "always")
+  policy_expiry      = each.value.expires_at != null ? "enable" : "disable"
+  policy_expiry_date = each.value.expires_at != null ? replace(each.value.expires_at, "T", " ") : null
+  status             = each.value.disabled ? "disable" : "enable"
+  logtraffic         = each.value.log_end ? "all" : each.value.log_start ? "utm" : "disable"
+  logtraffic_start   = each.value.log_start ? "enable" : "disable"
+  srcaddr_negate     = each.value.negate_source ? "enable" : "disable"
+  dstaddr_negate     = each.value.negate_destination ? "enable" : "disable"
 
   dynamic "srcintf" {
     for_each = each.value.source_zones
@@ -98,6 +117,8 @@ resource "fortios_firewall_policy" "rules" {
 
   depends_on = [
     fortios_firewall_address.addresses,
-    fortios_firewallservice_custom.services
+    fortios_firewallservice_custom.services,
+    fortios_firewallschedule_recurring.schedules,
+    fortios_firewallschedule_onetime.schedules
   ]
 }

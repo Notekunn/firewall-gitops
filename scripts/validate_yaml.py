@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 import jsonschema
 from jsonschema import validate, ValidationError
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 def load_schema(schema_file):
     """Load JSON schema from file"""
@@ -107,6 +109,78 @@ def validate_cluster_references(cluster_configs, firewall_objects):
 
     return errors
 
+
+def load_cluster_objects(cluster_dir):
+    """Load object files in the same deterministic order as OpenTofu."""
+    paths = []
+    single = os.path.join(cluster_dir, "objects.yaml")
+    if os.path.exists(single):
+        paths.append(single)
+    paths.extend(sorted(glob.glob(os.path.join(cluster_dir, "objects", "*.yaml"))))
+    documents = []
+    for path in paths:
+        with open(path, "r", encoding="utf-8") as file:
+            documents.append((path, yaml.safe_load(file) or {}))
+    return documents
+
+
+def validate_merged_cluster(cluster_config_path):
+    """Validate ownership and references after all object files are merged."""
+    errors = []
+    cluster_dir = os.path.dirname(cluster_config_path)
+    with open(cluster_config_path, "r", encoding="utf-8") as file:
+        cluster = yaml.safe_load(file) or {}
+
+    timezone_name = cluster.get("global", {}).get("timezone", "Asia/Bangkok")
+    try:
+        ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        errors.append(f"Invalid global.timezone in {cluster_config_path}: {timezone_name}")
+
+    merged = {key: [] for key in ("addresses", "services", "rules", "schedules")}
+    for _, document in load_cluster_objects(cluster_dir):
+        for key in merged:
+            merged[key].extend(document.get(key, []))
+
+    for kind, items in merged.items():
+        seen = set()
+        for item in items:
+            name = item.get("name")
+            if name in seen:
+                singular = "address" if kind == "addresses" else kind[:-1]
+                errors.append(f"Duplicate {singular} name in {cluster_dir}: {name}")
+            seen.add(name)
+
+    schedule_names = {item.get("name") for item in merged["schedules"]}
+    schedules_by_name = {item.get("name"): item for item in merged["schedules"]}
+    vendor = cluster.get("firewall", {}).get("type")
+    if vendor == "fortinet":
+        for schedule in merged["schedules"]:
+            schedule_type = schedule.get("schedule_type", {})
+            ranges = schedule_type.get("non_recurring") or schedule_type.get("recurring", {}).get("daily")
+            weekly = schedule_type.get("recurring", {}).get("weekly", {})
+            weekly_ranges = {value for values in weekly.values() for value in values}
+            if ranges is not None and len(ranges) != 1:
+                errors.append(f"FortiGate schedule {schedule.get('name')} in {cluster_dir} must contain exactly one time range")
+            if weekly and len(weekly_ranges) != 1:
+                errors.append(f"FortiGate weekly schedule {schedule.get('name')} in {cluster_dir} must use one shared time range")
+    for rule in merged["rules"]:
+        schedule = rule.get("schedule")
+        if schedule and schedule not in schedule_names and schedule != "always":
+            errors.append(f"Rule {rule.get('name')} in {cluster_dir} references missing schedule: {schedule}")
+        expires_at = rule.get("expires_at")
+        if expires_at:
+            try:
+                datetime.fromisoformat(expires_at)
+            except ValueError:
+                errors.append(f"Rule {rule.get('name')} in {cluster_dir} has invalid expires_at: {expires_at}")
+            if vendor == "palo-alto":
+                schedule_data = schedules_by_name.get(schedule, {}).get("schedule_type", {})
+                if not schedule or not schedule_data.get("non_recurring"):
+                    errors.append(f"PAN-OS rule {rule.get('name')} in {cluster_dir} requires a non-recurring schedule when expires_at is set")
+
+    return errors
+
 def main():
     """Main validation function"""
     print("Starting YAML configuration validation...")
@@ -172,6 +246,8 @@ def main():
     # Validate cluster references
     ref_errors = validate_cluster_references(cluster_configs, firewall_objects)
     errors.extend(ref_errors)
+    for config_file in cluster_configs:
+        errors.extend(validate_merged_cluster(config_file))
     
     # Print results
     if errors:

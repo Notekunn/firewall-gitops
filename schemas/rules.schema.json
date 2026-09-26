@@ -107,7 +107,7 @@
 	"definitions": {
 		"schedule": {
 			"type": "object",
-			"description": "PAN-OS schedule object (one of non_recurring or recurring)",
+			"description": "Cross-vendor named schedule object (one of non_recurring or recurring)",
 			"required": ["name", "schedule_type"],
 			"additionalProperties": false,
 			"properties": {
@@ -446,6 +446,22 @@
 					"type": ["string", "null"],
 					"description": "Schedule object name (PAN-OS max 31 chars)",
 					"maxLength": 31
+				},
+				"expires_at": {
+					"type": ["string", "null"],
+					"description": "Local expiry timestamp interpreted using global.timezone",
+					"pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?$"
+				},
+				"change": {
+					"type": ["object", "null"],
+					"description": "Optional PAN-OS audit history entry",
+					"required": ["ticket", "revision", "comment"],
+					"additionalProperties": false,
+					"properties": {
+						"ticket": { "type": "string", "minLength": 1 },
+						"revision": { "type": "integer", "minimum": 1 },
+						"comment": { "type": "string", "minLength": 1 }
+					}
 				},
 				"tags": {
 					"type": "array",

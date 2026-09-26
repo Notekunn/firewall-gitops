@@ -2,7 +2,11 @@ terraform {
   required_providers {
     panos = {
       source  = "paloaltonetworks/panos"
-      version = "~> 2.0.10"
+      version = "2.0.13"
+    }
+    fortios = {
+      source  = "fortinetdev/fortios"
+      version = "1.26.1"
     }
     checkpoint = {
       source  = "CheckPointSW/checkpoint"
@@ -64,6 +68,7 @@ locals {
 
   # Extract firewall configuration
   firewall_config = local.cluster_config.firewall
+  global_timezone = try(local.cluster_config.global.timezone, "Asia/Bangkok")
 
   # Determine if using Panorama or standalone
   is_panorama = can(local.firewall_config.panorama)
@@ -130,6 +135,7 @@ locals {
 
 # Configure the PAN-OS provider
 provider "panos" {}
+provider "fortios" {}
 
 # Configure the CheckPoint provider
 provider "checkpoint" {}
@@ -150,6 +156,7 @@ module "palo_alto_firewall" {
   location           = local.location_config
   global = {
     log_setting = try(local.firewall_config.log_setting, null)
+    timezone    = local.global_timezone
   }
 }
 
@@ -161,6 +168,7 @@ module "fortinet_firewall" {
   firewall_rules     = local.firewall_rules
   firewall_addresses = local.firewall_addresses
   firewall_services  = local.firewall_services
+  firewall_schedules = local.firewall_schedules
   position           = local.position_config
   location           = local.location_config
 }

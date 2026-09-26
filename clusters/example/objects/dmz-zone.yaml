@@ -6,11 +6,6 @@ addresses:
     ip_netmask: '10.0.1.10/32'
     description: 'DMZ proxy server'
     tags: ['dmz', 'proxy']
-  - name: 'dmz-proxy'
-    ip_netmask: '10.0.1.10/32'
-    description: 'DMZ proxy server'
-    tags: ['dmz', 'proxy']
-
 services:
   - name: 'proxy-service'
     type: 'tcp'

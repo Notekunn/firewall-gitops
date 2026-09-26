@@ -102,7 +102,7 @@ export BIGIP_PASSWORD="password"
 python scripts/validate_yaml.py
 
 # Format Terraform
-terraform fmt -recursive
+tofu fmt -recursive
 
 # Plan deployment
 ./scripts/deploy.sh -c <cluster> -a plan

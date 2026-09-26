@@ -42,10 +42,16 @@ variable "firewall_rules" {
     log_setting           = optional(string, null)
     disabled              = optional(bool, false)
     schedule              = optional(string, null)
-    tags                  = optional(list(string))
-    group_tag             = optional(string, null)
-    negate_source         = optional(bool, false)
-    negate_destination    = optional(bool, false)
+    expires_at            = optional(string, null)
+    change = optional(object({
+      ticket   = string
+      revision = number
+      comment  = string
+    }), null)
+    tags               = optional(list(string))
+    group_tag          = optional(string, null)
+    negate_source      = optional(bool, false)
+    negate_destination = optional(bool, false)
 
     profile_setting = optional(object({
       group = optional(list(string), [])
@@ -101,6 +107,7 @@ variable "position" {
 variable "global" {
   type = object({
     log_setting = optional(string, null)
+    timezone    = optional(string, "Asia/Bangkok")
   })
   default     = {}
   description = "Global rule-level defaults (fallbacks)"

@@ -4,7 +4,6 @@
 *.tfplan
 *.tfvars
 .terraform/
-.terraform.lock.hcl
 terraform.tfstate.d/
 
 # Environment files

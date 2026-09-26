@@ -1,13 +1,13 @@
 # Firewall GitOps Project
 
-This project provides a GitOps approach to managing firewall configurations using Terraform modules. Network developers can define firewall rules using simple YAML configuration files, which are then automatically converted to Terraform and applied via GitLab CI/CD.
+This project provides a GitOps approach to managing firewall configurations using OpenTofu modules. Network developers define firewall rules in YAML, which GitLab CI validates, plans, and applies with OpenTofu 1.12.6.
 
 ## 🚀 Features
 
 - **YAML-based Configuration**: Simple, human-readable firewall rule definitions
 - **GitOps Workflow**: Version-controlled infrastructure with automated deployments
 - **Multi-Environment Support**: Separate configurations for dev, staging, and production
-- **Automated Validation**: YAML schema validation and Terraform plan checks
+- **Automated Validation**: YAML schema validation and OpenTofu plan safety checks
 - **Security Scanning**: Built-in security best practices validation
 - **Approval Workflows**: Manual approval gates for production changes
 - **SOAR Integration**: Automated security responses via webhook service (NEW)
@@ -159,7 +159,7 @@ Current model fixtures are `clusters/fw-core` (PAN-OS), `clusters/fw-out` and `c
 ## 🛠️ Requirements
 
 ### Software Requirements
-- **Terraform** >= 1.0
+- **OpenTofu** 1.12.6
 - **Python** >= 3.8 (for validation scripts)
 - **Go** >= 1.23.1 (for SOAR webhook service)
 - **Git** for version control
@@ -171,8 +171,13 @@ Current model fixtures are `clusters/fw-core` (PAN-OS), `clusters/fw-out` and `c
 - **Permissions**: Device group management (Panorama) or configuration management (NGFW)
 
 ### Provider Versions
-- `paloaltonetworks/panos` >= 2.0.5
+- `paloaltonetworks/panos` 2.0.13
+- `fortinetdev/fortios` 1.26.1
 - `CheckPointSW/checkpoint` >= 2.11.0
+
+### State Migration
+
+Normal commands target v1 state. Use `--state-generation v2` only for reviewed adoption into `firewall-<cluster>-v2`; apply always requires the saved plan artifact. See [V2 State Migration](docs/v2-state-migration.md) for the no-destroy import and rollback procedure.
 
 ## 🔧 Configuration Examples
 

@@ -25,14 +25,3 @@ rules:
       - 'db-service'
     action: 'allow'
     log_end: true
-  - name: 'allow-db-traffic'
-    description: 'Allow MySQL traffic to database servers'
-    source_zones: ['trust']
-    destination_zones: ['dmz']
-    source_addresses: ['app-servers']
-    destination_addresses: ['db-server']
-    applications: ['mysql']
-    services:
-      - 'db-service'
-    action: 'allow'
-    log_end: true

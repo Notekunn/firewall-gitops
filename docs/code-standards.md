@@ -10,7 +10,7 @@ Coding conventions for Firewall GitOps project following YAGNI-KISS-DRY principl
 
 ### Formatting
 - Two-space indentation
-- Run `terraform fmt -recursive` before commit
+- Run `tofu fmt -recursive` before commit
 
 ### Naming
 - Snake_case for variables/resources/locals/outputs

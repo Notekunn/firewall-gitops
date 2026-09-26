@@ -7,6 +7,19 @@
 	"required": ["cluster", "firewall"],
 	"additionalProperties": false,
 	"properties": {
+		"global": {
+			"type": "object",
+			"description": "Cross-vendor configuration defaults",
+			"additionalProperties": false,
+			"properties": {
+				"timezone": {
+					"type": "string",
+					"description": "IANA timezone used to interpret local schedule and expiry values",
+					"default": "Asia/Bangkok",
+					"minLength": 1
+				}
+			}
+		},
 		"cluster": {
 			"type": "object",
 			"description": "Cluster metadata and identification",

@@ -1,304 +1,101 @@
-# GitLab CI Pipeline for Firewall GitOps
-# This pipeline validates, plans, and applies firewall configurations
-
 variables:
-  TERRAFORM_VERSION: '1.13.0'
+  OPENTOFU_VERSION: '1.12.6'
   TF_ROOT: '${CI_PROJECT_DIR}/terraform'
-  SELECTED_CLUSTER:
-    value: 'none'
-    options:
-      - example
-      - production
-      - development
-      - none
-    description: 'Select the cluster to deploy'
+  STATE_GENERATION:
+    value: 'v1'
+    options: ['v1', 'v2']
+    description: 'Use v2 only during reviewed state adoption/cutover'
   GITLAB_API_URL: '${CI_API_V4_URL}'
   GITLAB_PROJECT_ID: '${CI_PROJECT_ID}'
   GITLAB_USERNAME: 'gitlab-ci-token'
   GITLAB_PASSWORD: '${CI_JOB_TOKEN}'
-  # PAN-OS Provider Variables
-  PANOS_HOSTNAME: '${PANOS_HOSTNAME}'
-  PANOS_USERNAME: '${PANOS_USERNAME}'
-  PANOS_PASSWORD: '${PANOS_PASSWORD}'
-  PANOS_API_KEY: '${PANOS_API_KEY}'
-  PANOS_PROTOCOL: '${PANOS_PROTOCOL:-https}'
-  PANOS_PORT: '${PANOS_PORT:-443}'
-  PANOS_TIMEOUT: '${PANOS_TIMEOUT:-10}'
-  PANOS_SKIP_VERIFY_CERTIFICATE: '${PANOS_SKIP_VERIFY_CERTIFICATE:-true}'
 
-# Cache Terraform plugins and modules per cluster
-cache:
-  key: '${CI_COMMIT_REF_SLUG}-${CLUSTER_NAME}'
-  paths:
-    - ${TF_ROOT}/.terraform
-    - ${TF_ROOT}/.terraform.lock.hcl
+stages: [validate, plan, apply]
 
-stages:
-  - validate
-  - plan
-  - apply
-  - cleanup
-
-# Base job template
-.terraform_base:
+.tofu-base:
   image:
-    name: hashicorp/terraform:$TERRAFORM_VERSION
+    name: opentofu/opentofu:$OPENTOFU_VERSION
     entrypoint: ['']
+  cache:
+    key: '${CI_COMMIT_REF_SLUG}-${CLUSTER_NAME}'
+    paths: ['${TF_ROOT}/.terraform']
   before_script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a init
+    - ./scripts/deploy.sh -c "$CLUSTER_NAME" -a init --state-generation "$STATE_GENERATION"
 
-# YAML Validation
-validate_yaml:
+validate-yaml:
   stage: validate
   image: python:3.11-alpine
-  before_script:
-    - pip install -r requirements.txt
-  script:
-    - |
-      echo "Validating YAML configurations..."
-      echo "Using JSON schemas from schemas/ directory"
-      python3 scripts/validate_yaml.py
-  artifacts:
-    reports:
-      junit: validation-results.xml
-    when: always
-    expire_in: 1 week
-  rules:
-    - changes:
-        - clusters/**/*.yaml
-        - clusters/**/*.yml
-        - schemas/*.json
-        - scripts/validate_yaml.py
+  before_script: ['pip install -r requirements.txt']
+  script: ['python3 scripts/validate_yaml.py']
 
-# Terraform Format Check for Example
-terraform_fmt_example:
-  extends: .terraform_base
+tofu-format:
+  extends: .tofu-base
   stage: validate
-  variables:
-    CLUSTER_NAME: 'example'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
-  rules:
-    - changes:
-        - clusters/example/**/*.yaml
-        - clusters/example/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
+  variables: {CLUSTER_NAME: 'fw-core'}
+  script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a fmt']
 
-# Terraform Format Check for Development
-terraform_fmt_development:
-  extends: .terraform_base
+tofu-validate:
+  extends: .tofu-base
   stage: validate
-  variables:
-    CLUSTER_NAME: 'development'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
-  rules:
-    - changes:
-        - clusters/development/**/*.yaml
-        - clusters/development/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
+  variables: {CLUSTER_NAME: 'fw-core'}
+  script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a validate']
 
-# Terraform Format Check for Production
-terraform_fmt_production:
-  extends: .terraform_base
-  stage: validate
-  variables:
-    CLUSTER_NAME: 'production'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a fmt
-  rules:
-    - changes:
-        - clusters/production/**/*.yaml
-        - clusters/production/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-# Terraform Validation for Example
-terraform_validate_example:
-  extends: .terraform_base
-  stage: validate
-  variables:
-    CLUSTER_NAME: 'example'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
-  rules:
-    - changes:
-        - clusters/example/**/*.yaml
-        - clusters/example/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-# Terraform Validation for Development
-terraform_validate_development:
-  extends: .terraform_base
-  stage: validate
-  variables:
-    CLUSTER_NAME: 'development'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
-  rules:
-    - changes:
-        - clusters/development/**/*.yaml
-        - clusters/development/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-# Terraform Validation for Production
-terraform_validate_production:
-  extends: .terraform_base
-  stage: validate
-  variables:
-    CLUSTER_NAME: 'production'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a validate
-  rules:
-    - changes:
-        - clusters/production/**/*.yaml
-        - clusters/production/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-# Security Scan
-security_scan:
+security-scan:
   stage: validate
   image:
     name: bridgecrew/checkov:latest
     entrypoint: ['']
   script:
-    - |
-      echo "Running security scan on Terraform configurations..."
-      checkov -d terraform/ --framework terraform --output cli --quiet
-      checkov -d modules/ --framework terraform --output cli --quiet
+    - checkov -d terraform/ --framework terraform --output cli --quiet
+    - checkov -d modules/ --framework terraform --output cli --quiet
   allow_failure: true
-  rules:
-    - changes:
-        - terraform/**/*.tf
-        - modules/**/*.tf
 
-.plan_template: &plan_template
-  extends: .terraform_base
+.plan:
+  extends: .tofu-base
   stage: plan
-  resource_group: terraform-$CLUSTER_NAME
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a plan
+  resource_group: 'firewall-${CLUSTER_NAME}-${STATE_GENERATION}'
+  script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a plan --state-generation "$STATE_GENERATION"']
   artifacts:
-    name: 'terraform-plan-$CLUSTER_NAME'
-    paths:
-      - ${TF_ROOT}/plan-*.tfplan
-      - ${TF_ROOT}/plan-*.json
+    name: 'tofu-plan-${CLUSTER_NAME}-${STATE_GENERATION}'
+    paths: ['terraform/plan-*.tfplan', 'terraform/plan-*.json']
+    reports: {terraform: 'terraform/plan-*.json'}
     expire_in: 1 week
-    reports:
-      terraform: ${TF_ROOT}/plan-*.json
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
-# Terraform Apply
-.apply_template: &apply_template
-  extends: .terraform_base
+.apply:
+  extends: .tofu-base
   stage: apply
-  resource_group: terraform-$CLUSTER_NAME
-  # variables:
-  #   CLUSTER_NAME: '${SELECTED_CLUSTER}'
-  script:
-    - ./scripts/deploy.sh -c $CLUSTER_NAME -a apply
-  artifacts:
-    name: 'terraform-apply-$CLUSTER_NAME'
-    paths:
-      - ${TF_ROOT}/terraform.tfstate
-    expire_in: 1 month
-
-# Dynamic plan jobs will be created for each changed cluster
-plan_example:
-  <<: *plan_template
-  variables:
-    CLUSTER_NAME: 'example'
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - clusters/example/**/*.yaml
-        - clusters/example/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-plan_development:
-  <<: *plan_template
-  variables:
-    CLUSTER_NAME: 'development'
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - clusters/development/**/*.yaml
-        - clusters/development/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-plan_production:
-  <<: *plan_template
-  variables:
-    CLUSTER_NAME: 'production'
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - clusters/production/**/*.yaml
-        - clusters/production/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
-
-# Manual approval for production deployments
-approve_production:
-  stage: plan
-  image: alpine:latest
-  script:
-    - echo "Production deployment requires manual approval"
+  resource_group: 'firewall-${CLUSTER_NAME}-${STATE_GENERATION}'
   when: manual
   allow_failure: false
+  script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a apply --state-generation "$STATE_GENERATION"']
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - changes:
-        - clusters/production/**/*.yaml
-        - clusters/production/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
 
-apply_example:
-  <<: *apply_template
-  variables:
-    CLUSTER_NAME: 'example'
-  dependencies:
-    - plan_example
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - clusters/example/**/*.yaml
-        - clusters/example/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
+plan-fw-core:
+  extends: .plan
+  variables: {CLUSTER_NAME: 'fw-core'}
 
-apply_development:
-  <<: *apply_template
-  variables:
-    CLUSTER_NAME: 'development'
-  dependencies:
-    - plan_development
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - clusters/development/**/*.yaml
-        - clusters/development/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
+apply-fw-core:
+  extends: .apply
+  variables: {CLUSTER_NAME: 'fw-core'}
+  dependencies: [plan-fw-core]
 
-apply_production:
-  <<: *apply_template
-  variables:
-    CLUSTER_NAME: 'production'
-  dependencies:
-    - plan_production
-    - approve_production
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - clusters/production/**/*.yaml
-        - clusters/production/**/*.yml
-        - terraform/**/*.tf
-        - modules/**/*.tf
+plan-fw-mgmt:
+  extends: .plan
+  variables: {CLUSTER_NAME: 'fw-mgmt'}
+
+apply-fw-mgmt:
+  extends: .apply
+  variables: {CLUSTER_NAME: 'fw-mgmt'}
+  dependencies: [plan-fw-mgmt]
+
+plan-fw-out:
+  extends: .plan
+  variables: {CLUSTER_NAME: 'fw-out'}
+
+apply-fw-out:
+  extends: .apply
+  variables: {CLUSTER_NAME: 'fw-out'}
+  dependencies: [plan-fw-out]

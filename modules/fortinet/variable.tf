@@ -42,10 +42,16 @@ variable "firewall_rules" {
     log_setting           = optional(string, null)
     disabled              = optional(bool, false)
     schedule              = optional(string, null)
-    tags                  = optional(list(string), [])
-    group_tag             = optional(string, null)
-    negate_source         = optional(bool, false)
-    negate_destination    = optional(bool, false)
+    expires_at            = optional(string, null)
+    change = optional(object({
+      ticket   = string
+      revision = number
+      comment  = string
+    }), null)
+    tags               = optional(list(string), [])
+    group_tag          = optional(string, null)
+    negate_source      = optional(bool, false)
+    negate_destination = optional(bool, false)
 
     profile_setting = optional(object({
       group = optional(list(string), [])
@@ -60,6 +66,21 @@ variable "firewall_rules" {
       }), null)
     }), null)
   }))
+}
+
+variable "firewall_schedules" {
+  type = list(object({
+    name             = string
+    disable_override = optional(string, "yes")
+    schedule_type = object({
+      non_recurring = optional(list(string), null)
+      recurring = optional(object({
+        daily  = optional(list(string), null)
+        weekly = optional(map(list(string)), null)
+      }), null)
+    })
+  }))
+  default = []
 }
 
 variable "location" {
