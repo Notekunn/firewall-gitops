@@ -2,17 +2,29 @@ terraform {
   required_providers {
     panos = {
       source  = "paloaltonetworks/panos"
-      version = "~> 2.0.5"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.0"
+      version = "~> 2.0.10"
     }
   }
 }
 
 locals {
   location = var.location
+
+  # panos_schedule location shape differs from rule location:
+  # flat {device_group|vsys|shared} object, no nested `panorama` wrapper.
+  schedule_location = var.location.panorama != null ? {
+    device_group = {
+      name            = var.location.panorama.device_group
+      panorama_device = var.location.panorama.panorama_device
+    }
+    } : (var.location.vsys != null ? {
+      vsys = {
+        name        = var.location.vsys.name
+        ngfw_device = var.location.vsys.ngfw_device
+      }
+      } : (var.location.shared != null ? {
+        shared = {}
+  } : null))
 }
 
 resource "panos_addresses" "address_objects" {
@@ -44,10 +56,25 @@ resource "panos_service" "service_objects" {
   }
 }
 
+resource "panos_schedule" "schedules" {
+  for_each = { for s in var.firewall_schedules : s.name => s }
+
+  location         = local.schedule_location
+  name             = each.value.name
+  disable_override = each.value.disable_override
+  schedule_type    = each.value.schedule_type
+}
+
 resource "panos_security_policy_rules" "firewall_rules" {
-  location   = local.location
-  position   = var.position
-  depends_on = [panos_addresses.address_objects, panos_service.service_objects]
+  location = local.location
+  position = {
+    where = "last"
+  }
+  depends_on = [
+    panos_addresses.address_objects,
+    panos_service.service_objects,
+    panos_schedule.schedules,
+  ]
   rules = [
     for rule in var.firewall_rules : {
       name                  = rule.name
@@ -67,6 +94,8 @@ resource "panos_security_policy_rules" "firewall_rules" {
       services              = rule.services
       log_start             = rule.log_start
       log_end               = rule.log_end
+      log_setting           = rule.log_setting != null ? rule.log_setting : var.global.log_setting
+      schedule              = rule.schedule
       profile_setting = rule.profile_setting != null ? {
         group = rule.profile_setting.group
         profiles = rule.profile_setting.profiles != null ? {

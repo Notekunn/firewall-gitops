@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Tests
+*_test.go
+tests/
+
+# CI/CD
+.gitlab-ci.yml
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+temp/
+
+# Build artifacts
+*.exe
+webhook-soar
+!cmd/webhook/webhook-soar
+
+# Local development
+.env.local
+.env.*.local
+
+# Coverage reports
+coverage.out
+coverage.html

@@ -17,14 +17,14 @@ variable "firewall_services" {
     description      = optional(string, "")
     type             = string # tcp, udp
     tags             = optional(list(string), [])
-    destination_port = string
-    source_port      = optional(string, null)
+    destination_port = optional(string, null)
+    source_port      = string
   }))
   default = []
 }
 
 variable "firewall_rules" {
-  description = "Map firewall rules"
+  description = "Map of rule groups containing firewall rules"
   type = list(object({
     name                  = string
     description           = optional(string, "")
@@ -33,8 +33,8 @@ variable "firewall_rules" {
     destination_zones     = list(string)
     source_addresses      = list(string)
     destination_addresses = list(string)
+    applications          = list(string)
     services              = list(string)
-    applications          = optional(list(string), ["any"])
     source_users          = optional(list(string), [])
     action                = optional(string, "allow")
     log_start             = optional(bool, false)
@@ -42,7 +42,7 @@ variable "firewall_rules" {
     log_setting           = optional(string, null)
     disabled              = optional(bool, false)
     schedule              = optional(string, null)
-    tags                  = optional(list(string))
+    tags                  = optional(list(string), [])
     group_tag             = optional(string, null)
     negate_source         = optional(bool, false)
     negate_destination    = optional(bool, false)
@@ -96,36 +96,4 @@ variable "position" {
     condition     = contains(["after", "before"], var.position.where) ? var.position.pivot != null : true
     error_message = "pivot is required when where is after or before"
   }
-}
-
-variable "global" {
-  type = object({
-    log_setting = optional(string, null)
-  })
-  default     = {}
-  description = "Global rule-level defaults (fallbacks)"
-}
-
-variable "firewall_schedules" {
-  description = "PAN-OS schedule objects"
-  type = list(object({
-    name             = string
-    disable_override = optional(string, "yes")
-    schedule_type = object({
-      non_recurring = optional(list(string), null)
-      recurring = optional(object({
-        daily = optional(list(string), null)
-        weekly = optional(object({
-          monday    = optional(list(string), null)
-          tuesday   = optional(list(string), null)
-          wednesday = optional(list(string), null)
-          thursday  = optional(list(string), null)
-          friday    = optional(list(string), null)
-          saturday  = optional(list(string), null)
-          sunday    = optional(list(string), null)
-        }), null)
-      }), null)
-    })
-  }))
-  default = []
 }

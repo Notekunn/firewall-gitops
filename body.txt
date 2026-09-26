@@ -1,0 +1,12 @@
+{
+  "ticket_id": "<ticket_id>",
+  "source_system": "<source_system>",
+  "target": {
+    "domain": "example.com"
+  },
+  "attacker": {
+    "type": "ip_v4",
+    "value": "1.1.1.1"
+  },
+  "reason": "Detected multiple SQL Injection attempts within 5 minutes"
+}

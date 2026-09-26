@@ -1,0 +1,22 @@
+addresses:
+  - name: 'core-host'
+    ip_netmask: '172.25.1.5/32'
+  - name: 'internet-dns'
+    ip_netmask: '8.8.8.8/32'
+
+services:
+  - name: 'tcp-443'
+    type: 'tcp'
+    destination_port: '443'
+    source_port: '1024-65535'
+
+rules:
+  - name: 'allow-core-egress-https'
+    source_zones: ['inside']
+    destination_zones: ['outside']
+    source_addresses: ['core-host']
+    destination_addresses: ['internet-dns']
+    applications: ['any']
+    services: ['tcp-443']
+    action: 'Accept'
+    log_end: true

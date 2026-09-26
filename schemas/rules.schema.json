@@ -5,8 +5,74 @@
 	"description": "Schema for firewall rules configuration files in the Firewall GitOps project",
 	"type": "object",
 	"additionalProperties": false,
-	"anyOf": [{ "required": ["addresses"] }, { "required": ["services"] }, { "required": ["rules"] }],
+	"anyOf": [
+		{ "required": ["addresses"] },
+		{ "required": ["services"] },
+		{ "required": ["rules"] },
+		{ "required": ["ip_lists"] },
+		{ "required": ["schedules"] }
+	],
 	"properties": {
+		"ip_lists": {
+			"type": "object",
+			"description": "IP lists for F5 WAF blocklist and whitelist",
+			"additionalProperties": false,
+			"properties": {
+				"global": {
+					"type": "object",
+					"description": "Global IP lists applied to all domains",
+					"additionalProperties": false,
+					"properties": {
+						"blocklist": {
+							"type": "array",
+							"description": "List of IPs/CIDRs to block globally",
+							"items": {
+								"type": "string",
+								"pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/[0-9]{1,2})?$"
+							},
+							"uniqueItems": true
+						},
+						"whitelist": {
+							"type": "array",
+							"description": "List of IPs/CIDRs to allow globally",
+							"items": {
+								"type": "string",
+								"pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/[0-9]{1,2})?$"
+							},
+							"uniqueItems": true
+						}
+					}
+				},
+				"domains": {
+					"type": "object",
+					"description": "Per-domain IP lists",
+					"additionalProperties": {
+						"type": "object",
+						"additionalProperties": false,
+						"properties": {
+							"blocklist": {
+								"type": "array",
+								"description": "List of IPs/CIDRs to block for this domain",
+								"items": {
+									"type": "string",
+									"pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/[0-9]{1,2})?$"
+								},
+								"uniqueItems": true
+							},
+							"whitelist": {
+								"type": "array",
+								"description": "List of IPs/CIDRs to allow for this domain",
+								"items": {
+									"type": "string",
+									"pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(\\/[0-9]{1,2})?$"
+								},
+								"uniqueItems": true
+							}
+						}
+					}
+				}
+			}
+		},
 		"addresses": {
 			"type": "array",
 			"description": "List of address objects to create (optional)",
@@ -28,9 +94,99 @@
 				"$ref": "#/definitions/security_rule"
 			},
 			"minItems": 1
+		},
+		"schedules": {
+			"type": "array",
+			"description": "List of PAN-OS schedule objects (optional)",
+			"items": {
+				"$ref": "#/definitions/schedule"
+			},
+			"minItems": 1
 		}
 	},
 	"definitions": {
+		"schedule": {
+			"type": "object",
+			"description": "PAN-OS schedule object (one of non_recurring or recurring)",
+			"required": ["name", "schedule_type"],
+			"additionalProperties": false,
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Unique schedule name (max 31 chars per PAN-OS)",
+					"pattern": "^[a-zA-Z0-9-_]+$",
+					"minLength": 1,
+					"maxLength": 31
+				},
+				"disable_override": {
+					"type": "string",
+					"description": "Prevent override in device groups",
+					"enum": ["yes", "no"],
+					"default": "yes"
+				},
+				"schedule_type": {
+					"type": "object",
+					"additionalProperties": false,
+					"oneOf": [
+						{ "required": ["non_recurring"] },
+						{ "required": ["recurring"] }
+					],
+					"properties": {
+						"non_recurring": {
+							"type": "array",
+							"description": "List of 'YYYY/MM/DD@HH:MM-YYYY/MM/DD@HH:MM' date-time ranges",
+							"items": {
+								"type": "string",
+								"pattern": "^[0-9]{4}/[0-9]{2}/[0-9]{2}@[0-9]{2}:[0-9]{2}-[0-9]{4}/[0-9]{2}/[0-9]{2}@[0-9]{2}:[0-9]{2}$"
+							},
+							"minItems": 1
+						},
+						"recurring": {
+							"type": "object",
+							"additionalProperties": false,
+							"oneOf": [
+								{ "required": ["daily"] },
+								{ "required": ["weekly"] }
+							],
+							"properties": {
+								"daily": {
+									"type": "array",
+									"description": "List of 'HH:MM-HH:MM' ranges applied every day",
+									"items": {
+										"type": "string",
+										"pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$"
+									},
+									"minItems": 1
+								},
+								"weekly": {
+									"type": "object",
+									"description": "Per-weekday 'HH:MM-HH:MM' ranges",
+									"additionalProperties": false,
+									"anyOf": [
+										{ "required": ["monday"] },
+										{ "required": ["tuesday"] },
+										{ "required": ["wednesday"] },
+										{ "required": ["thursday"] },
+										{ "required": ["friday"] },
+										{ "required": ["saturday"] },
+										{ "required": ["sunday"] }
+									],
+									"properties": {
+										"monday":    { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true },
+										"tuesday":   { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true },
+										"wednesday": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true },
+										"thursday":  { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true },
+										"friday":    { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true },
+										"saturday":  { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true },
+										"sunday":    { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}$" }, "minItems": 1, "uniqueItems": true }
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"address": {
 			"type": "object",
 			"description": "Address object definition based on firewall_addresses variable",
@@ -161,14 +317,7 @@
 		"security_rule": {
 			"type": "object",
 			"description": "Security policy rule definition based on firewall_rules variable",
-			"required": [
-				"name",
-				"source_zones",
-				"destination_zones",
-				"source_addresses",
-				"destination_addresses",
-				"services"
-			],
+			"required": ["name", "source_addresses", "destination_addresses", "services"],
 			"additionalProperties": false,
 			"properties": {
 				"name": {
@@ -270,7 +419,7 @@
 				"action": {
 					"type": "string",
 					"description": "Rule action",
-					"enum": ["allow", "deny", "drop", "reset-client", "reset-server", "reset-both"],
+					"enum": ["allow", "deny", "Accept", "Drop", "reset-client", "reset-server", "reset-both"],
 					"default": "allow"
 				},
 				"log_start": {
@@ -285,7 +434,7 @@
 				},
 				"log_setting": {
 					"type": ["string", "null"],
-					"description": "Log forwarding profile name",
+					"description": "Log forwarding profile name (must pre-exist on firewall). Null → inherits cluster global firewall.log_setting.",
 					"maxLength": 64
 				},
 				"disabled": {
@@ -295,8 +444,8 @@
 				},
 				"schedule": {
 					"type": ["string", "null"],
-					"description": "Schedule object name",
-					"maxLength": 64
+					"description": "Schedule object name (PAN-OS max 31 chars)",
+					"maxLength": 31
 				},
 				"tags": {
 					"type": "array",

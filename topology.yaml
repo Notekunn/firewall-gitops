@@ -1,0 +1,71 @@
+segments:
+  - name: internet
+    nets: ['0.0.0.0/0']
+    terminal: true
+  - name: core
+    nets: ['172.25.0.0/16']
+  - name: mgmt
+    nets: ['172.25.10.0/24']
+  - name: t-in
+    nets: ['10.0.1.0/24']
+    transit: true
+  - name: t-out
+    nets: ['10.0.2.0/24']
+    transit: true
+  - name: t-mgmt
+    nets: ['10.0.3.0/24']
+    transit: true
+firewalls:
+  - name: fw-in
+    cluster: fw-in
+    vendor: f5-waf
+    interfaces:
+      - zone: ingress
+        segment: internet
+      - zone: to-core
+        segment: t-in
+    edges:
+      - from: internet
+        to: t-in
+  - name: fw-core
+    cluster: fw-core
+    vendor: palo-alto
+    interfaces:
+      - zone: untrust-in
+        segment: t-in
+      - zone: trust
+        segment: core
+      - zone: untrust-out
+        segment: t-out
+      - zone: mgmt-uplink
+        segment: t-mgmt
+    edges:
+      - from: t-in
+        to: core
+      - from: core
+        to: t-out
+      - from: core
+        to: t-mgmt
+    default_route: t-out
+  - name: fw-out
+    cluster: fw-out
+    vendor: fortinet
+    interfaces:
+      - zone: inside
+        segment: t-out
+      - zone: outside
+        segment: internet
+    edges:
+      - from: t-out
+        to: internet
+  - name: fw-mgmt
+    cluster: fw-mgmt
+    vendor: fortinet
+    interfaces:
+      - zone: uplink
+        segment: t-mgmt
+      - zone: mgmt
+        segment: mgmt
+    edges:
+      - from: t-mgmt
+        to: mgmt

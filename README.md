@@ -10,12 +10,13 @@ This project provides a GitOps approach to managing firewall configurations usin
 - **Automated Validation**: YAML schema validation and Terraform plan checks
 - **Security Scanning**: Built-in security best practices validation
 - **Approval Workflows**: Manual approval gates for production changes
+- **SOAR Integration**: Automated security responses via webhook service (NEW)
 
 ## 🔥 Supported Firewalls
 
 - ✅ **Palo Alto Networks (PAN-OS)** - Full support for Panorama and standalone NGFW
-- 🚧 **Fortinet** (planned for future release)
-- 🚧 **Check Point** (planned for future release)
+- ✅ **Check Point** - Full support for Management Server with policy layers and automatic publishing
+- 🚧 **Fortinet** - Terraform module WIP; `open_rule` dry-run supports L3 matching
 
 ## 📁 Project Structure
 
@@ -34,20 +35,31 @@ firewall-gitops/
 │   ├── palo-alto/              # Palo Alto Networks module
 │   │   ├── main.tf
 │   │   └── variables.tf
+│   ├── checkpoint/             # Check Point module
+│   │   ├── main.tf
+│   │   └── variables.tf
 │   └── shared/                 # Shared modules and utilities
 ├── terraform/                  # Main Terraform configuration
 │   ├── main.tf                 # YAML parser and module calls
 │   └── variables.tf
 ├── scripts/                    # Helper scripts
 │   ├── validate_yaml.py        # YAML validation script
-│   └── deploy.sh              # Local deployment script
+│   ├── deploy.sh              # Local deployment script
+│   ├── commit.sh              # PAN-OS commit script
+│   └── soar-webhook/          # SOAR webhook service (NEW)
+│       ├── cmd/server/        # Application entry point
+│       ├── internal/          # Private application code
+│       ├── Dockerfile         # Container build
+│       └── README.md          # SOAR webhook documentation
 ├── schemas/                    # JSON schemas for validation
 │   ├── cluster.schema.json     # Cluster configuration schema
 │   ├── rules.schema.json       # Rules configuration schema
 │   └── README.md              # Schema documentation
 ├── docs/                       # Documentation
-│   ├── configuration.md        # Configuration guide
-│   └── getting-started.md     # Getting started guide
+│   ├── project-overview-pdr.md # Project overview
+│   ├── system-architecture.md  # System architecture
+│   ├── code-standards.md       # Code standards and best practices
+│   └── index.md               # Documentation index
 ├── requirements.txt            # Python dependencies
 └── README.md
 ```
@@ -108,10 +120,40 @@ python scripts/validate_yaml.py
 4. **Create a merge request** - pipeline will validate automatically
 5. **Merge to main** - changes deploy automatically (with approval for production)
 
+Helper script:
+
+```bash
+scripts/create-merge-request.sh -b fix/open-rule -m "fix: open firewall rule" --open-rule examples/flows.json
+scripts/create-merge-request.sh -b fix/my-rule -m "fix: update firewall rule" -- clusters/my-cluster/objects.yaml
+scripts/create-merge-request.sh -b fix/my-rule -m "fix: update firewall rule" --all
+```
+
+### Ticket-Driven Rule Opener (Dry Run)
+
+`open_rule` reads SOAR-style flow tickets and emits decision-only per-firewall verdicts. It does not write files, call firewall APIs, run Terraform, or commit.
+
+```bash
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json --format json
+```
+
+Input is a JSON list of `{src,dst,proto,port,ticket}`. The tool resolves `topology.yaml`, computes the directed firewall path, then reports one verdict per traversed firewall: `ALREADY_OPEN`, `EXTEND`, `CREATE`, `SHADOWED`, `SHADOW_UNKNOWN`, `MANUAL_F5`, or `ERROR`.
+
+Current model fixtures are `clusters/fw-core` (PAN-OS), `clusters/fw-out` and `clusters/fw-mgmt` (FortiGate), and `clusters/fw-in` (F5 WAF manual). Every actionable output includes caveats to verify path/routing/NAT and preceding deny placement before applying YAML manually.
+
 ## 📖 Documentation
 
-- **[Getting Started Guide](docs/getting-started.md)** - Detailed setup and usage instructions
-- **[Configuration Guide](docs/configuration.md)** - Complete YAML configuration reference
+### Core Documentation
+- **[Project Overview & PDR](docs/project-overview-pdr.md)** - Vision, architecture, requirements, roadmap
+- **[System Architecture](docs/system-architecture.md)** - Data flow, components, CI/CD pipeline, state management
+- **[Codebase Summary](docs/codebase-summary.md)** - File structure, modules, configurations, patterns
+- **[Code Standards](docs/code-standards.md)** - Terraform, YAML, Python, Bash, Go conventions, best practices
+
+### SOAR Webhook Service
+- **[SOAR Webhook README](scripts/soar-webhook/README.md)** - Automated security response service documentation
+
+### Additional Resources
+- **[CLAUDE.md](CLAUDE.md)** - AI agent guide with implementation details
 - **Example Configurations** - See `clusters/` directory for working examples
 
 ## 🛠️ Requirements
@@ -119,8 +161,10 @@ python scripts/validate_yaml.py
 ### Software Requirements
 - **Terraform** >= 1.0
 - **Python** >= 3.8 (for validation scripts)
+- **Go** >= 1.23.1 (for SOAR webhook service)
 - **Git** for version control
 - **GitLab** for CI/CD pipeline
+- **Docker** (optional, for containerized deployment)
 
 ### Firewall Access
 - **Palo Alto Networks**: API access to Panorama or NGFW
@@ -128,6 +172,7 @@ python scripts/validate_yaml.py
 
 ### Provider Versions
 - `paloaltonetworks/panos` >= 2.0.5
+- `CheckPointSW/checkpoint` >= 2.11.0
 
 ## 🔧 Configuration Examples
 
@@ -411,6 +456,28 @@ The CI/CD pipeline requires the following environment variables for PAN-OS conne
 - `PANOS_TIMEOUT` - Connection timeout in seconds (default: `10`)
 - `PANOS_SKIP_VERIFY_CERTIFICATE` - Skip SSL verification (default: `true`)
 
+### Check Point Provider Configuration
+
+The CI/CD pipeline requires the following environment variables for Check Point Management Server connectivity:
+
+**Required Variables:**
+- `CHECKPOINT_SERVER` - Management Server hostname/IP
+- `CHECKPOINT_USERNAME` - Username for authentication
+- `CHECKPOINT_PASSWORD` - Password for authentication
+- `CHECKPOINT_CONTEXT` - Management domain context (use `web_api` for default)
+
+**Optional Variables:**
+- `CHECKPOINT_PORT` - Port number (default: `443`)
+- `CHECKPOINT_TIMEOUT` - Connection timeout in seconds (default: `120`)
+- `CHECKPOINT_SESSION_NAME` - Session name for API calls
+- `CHECKPOINT_SESSION_TIMEOUT` - Session timeout in seconds (default: `600`)
+
+**CheckPoint Cluster Configuration:**
+- `layer_name`: Access layer name (default: "Network")
+- `auto_publish`: Automatically publish changes after apply (default: `true`)
+- `install_on`: List of gateways to install policy on (default: `["Policy Targets"]`)
+- `domain`: Management domain name (optional, for Multi-Domain Security Management)
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -428,5 +495,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Issues**: Create an issue in GitLab for bugs or feature requests
 - **Documentation**: Check the `docs/` directory for detailed guides
 - **Examples**: Reference the `clusters/` directory for working configurations
-
-

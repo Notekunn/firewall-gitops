@@ -1,0 +1,43 @@
+# CheckPoint Cluster Configuration Example
+# This configuration defines connection and deployment settings for CheckPoint firewalls
+
+cluster:
+  name: 'checkpoint-example'
+  environment: development
+
+firewall:
+  type: checkpoint
+
+  # CheckPoint Management Server configuration
+  checkpoint:
+    # Management domain (optional, defaults to null for Global domain)
+    domain: null
+
+    # Access layer name (optional, defaults to "Network")
+    layer_name: "Network"
+
+    # Auto-publish changes after applying (optional, defaults to true)
+    auto_publish: true
+
+    # Installation targets (optional)
+    install_on:
+      - "Policy Targets"
+
+    # Tracking/Logging configuration
+    track_type: "Log"  # Options: Log, Extended Log, Detailed Log, None
+    track_settings:
+      accounting: false
+      alert: "none"
+      enable_firewall_session: false
+      per_connection: true
+      per_session: false
+
+  auto_commit:
+    enabled: false
+
+# Rule positioning configuration
+# Controls where new rules are placed in the policy
+position:
+  where: "last"    # Options: first, last, after, before
+  # pivot: "rule-name"  # Required when using 'after' or 'before'
+  # directly: false     # Whether to place directly at position or use generic placement

@@ -1,0 +1,40 @@
+# CheckPoint Service Objects
+# Services define TCP/UDP ports for firewall rules
+
+services:
+  # HTTP service
+  - name: 'http-custom'
+    type: 'tcp'
+    destination_port: '80'
+    source_port: '1024-65535'
+    description: 'Custom HTTP service'
+    tags: ['web']
+
+  # HTTPS service
+  - name: 'https-custom'
+    type: 'tcp'
+    destination_port: '443'
+    source_port: '1024-65535'
+    description: 'Custom HTTPS service'
+    tags: ['web', 'secure']
+
+  # Custom application port
+  - name: 'app-port-8080'
+    type: 'tcp'
+    destination_port: '8080'
+    description: 'Application server port'
+    tags: ['application']
+
+  # Database port
+  - name: 'mysql-service'
+    type: 'tcp'
+    destination_port: '3306'
+    description: 'MySQL database service'
+    tags: ['database']
+
+  # UDP service example
+  - name: 'dns-service'
+    type: 'udp'
+    destination_port: '53'
+    description: 'DNS service'
+    tags: ['dns']
