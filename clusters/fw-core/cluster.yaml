@@ -1,0 +1,14 @@
+cluster:
+  name: 'fw-core'
+  environment: test
+
+firewall:
+  type: 'palo-alto'
+  standalone:
+    ngfw_device: 'fw-core.example.local'
+    vsys_name: 'vsys1'
+  auto_commit:
+    enabled: false
+
+position:
+  where: 'first'

@@ -15,7 +15,6 @@ rules:
     log_end: true
     log_start: false
     disabled: false
-    vpn: 'Any'
     tags: ['web-access']
 
   # Allow HTTPS traffic

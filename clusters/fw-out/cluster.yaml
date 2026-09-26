@@ -1,0 +1,14 @@
+cluster:
+  name: 'fw-out'
+  environment: test
+
+firewall:
+  type: 'fortinet'
+  standalone:
+    ngfw_device: 'fw-out.example.local'
+    vsys_name: 'vsys1'
+  auto_commit:
+    enabled: false
+
+position:
+  where: 'first'

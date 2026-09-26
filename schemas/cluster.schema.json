@@ -101,6 +101,61 @@
 						}
 					}
 				},
+				"checkpoint": {
+					"type": "object",
+					"description": "CheckPoint Management Server configuration",
+					"additionalProperties": false,
+					"properties": {
+						"domain": {
+							"type": ["string", "null"],
+							"description": "Management domain name"
+						},
+						"layer_name": {
+							"type": "string",
+							"description": "Access layer name",
+							"default": "Network",
+							"minLength": 1,
+							"maxLength": 64
+						},
+						"auto_publish": {
+							"type": "boolean",
+							"description": "Automatically publish changes",
+							"default": true
+						},
+						"install_on": {
+							"type": "array",
+							"description": "Policy installation targets",
+							"items": {
+								"type": "string",
+								"minLength": 1,
+								"maxLength": 64
+							},
+							"uniqueItems": true
+						},
+						"track_type": {
+							"type": "string",
+							"description": "Tracking/logging type",
+							"enum": ["Log", "Extended Log", "Detailed Log", "None"],
+							"default": "Log"
+						},
+						"track_settings": {
+							"type": "object",
+							"description": "CheckPoint track settings",
+							"additionalProperties": false,
+							"properties": {
+								"accounting": { "type": "boolean", "default": false },
+								"alert": {
+									"type": "string",
+									"enum": ["none", "alert", "snmp", "mail", "user-defined"],
+									"default": "none"
+								},
+								"enable_firewall_session": { "type": "boolean", "default": false },
+								"per_connection": { "type": "boolean", "default": true },
+								"per_session": { "type": "boolean", "default": false }
+							}
+						}
+					}
+				},
 				"auto_commit": {
 					"type": "object",
 					"description": "Auto-commit configuration",

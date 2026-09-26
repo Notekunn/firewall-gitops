@@ -1,6 +1,10 @@
 # CheckPoint Cluster Configuration Example
 # This configuration defines connection and deployment settings for CheckPoint firewalls
 
+cluster:
+  name: 'checkpoint-example'
+  environment: development
+
 firewall:
   type: checkpoint
 
@@ -28,9 +32,12 @@ firewall:
       per_connection: true
       per_session: false
 
+  auto_commit:
+    enabled: false
+
 # Rule positioning configuration
 # Controls where new rules are placed in the policy
 position:
-  where: "bottom"    # Options: top, bottom, above, below
-  # pivot: "rule-name"  # Required when using 'above' or 'below'
+  where: "last"    # Options: first, last, after, before
+  # pivot: "rule-name"  # Required when using 'after' or 'before'
   # directly: false     # Whether to place directly at position or use generic placement

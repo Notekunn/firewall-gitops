@@ -27,6 +27,7 @@ firewall-gitops/
 │   ├── cluster.schema.json
 │   └── rules.schema.json
 ├── scripts/              # Automation scripts
+│   ├── open_rule/        # Ticket-driven dry-run rule opener
 │   ├── webhook-soar/    # SOAR webhook service for automated threat response
 │   │   ├── cmd/webhook/ # Main application entry point
 │   │   ├── internal/    # Internal packages (config, handler, service, repo)
@@ -79,7 +80,7 @@ apply_<cluster>:
   - terraform apply plan-<cluster>.tfplan
 ```
 
-#### `CLAUDE.md` (280 lines)
+#### `CLAUDE.md`
 **Purpose:** Comprehensive project guide for Claude Code AI agent
 
 **Sections:**
@@ -93,7 +94,7 @@ apply_<cluster>:
 
 **Key Insight:** Acts as single source of truth for AI-assisted development
 
-#### `README.md` (456 lines)
+#### `README.md`
 **Purpose:** User-facing documentation
 
 **Contents:**
@@ -103,6 +104,19 @@ apply_<cluster>:
 - GitOps workflow
 - Provider configuration (PAN-OS, CheckPoint, F5)
 - State management explanation
+
+#### `topology.yaml`
+**Purpose:** Directed hub topology for `scripts/open_rule`.
+
+Models `internet`, `core`, `mgmt`, and transit segments across `fw-in` (F5 WAF), `fw-core` (PAN-OS), `fw-out` (FortiGate), and `fw-mgmt` (FortiGate). The core segment is `172.25.0.0/16`; mgmt is the more specific `172.25.10.0/24`. Paths are hand-authored and must be verified against real routing/NAT before applying proposed YAML.
+
+#### `examples/flows.json`
+**Purpose:** Sample input batch for the dry-run rule opener.
+
+Run with:
+```bash
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json
+```
 
 ---
 
@@ -176,6 +190,34 @@ variable "cluster_name" {
   default     = ""
 }
 ```
+
+---
+
+### Rule Opener
+
+#### `scripts/open_rule/`
+**Purpose:** Decision-only CLI for SOAR-style connectivity requests.
+
+**Flow:**
+1. Parse batch JSON `{src,dst,proto,port,ticket}`.
+2. Resolve endpoints to `topology.yaml` segments.
+3. Compute directed firewall path.
+4. Emit one verdict per hop.
+
+**Main modules:**
+- `loader.py`: merges `objects.yaml` plus sorted `objects/*.yaml`; supports PAN-OS/FortiGate full L3 data, F5 WAF `ip_lists` manual data, and gates CheckPoint.
+- `objects.py`: reuses or stages address/service objects, with `UNRESOLVABLE` sentinels for fqdn/groups/unknowns.
+- `matcher.py`: produces `ALREADY_OPEN`, `EXTEND`, `CREATE`, `SHADOWED`, or `SHADOW_UNKNOWN` per L3 firewall.
+- `orchestrator.py`: handles multi-hop paths, F5 `MANUAL_F5`, fail-closed errors, and severity aggregation.
+- `render.py`: text/json output; YAML snippets use `yaml.safe_dump`.
+- `matcher_*.py`, `object_*.py`, `orchestrator_*.py`: small internal helpers; each opener module stays under 200 lines.
+
+**Command:**
+```bash
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json
+```
+
+**Fixtures:** `clusters/fw-core`, `clusters/fw-out`, `clusters/fw-mgmt`, `clusters/fw-in`.
 
 ---
 
@@ -433,7 +475,7 @@ clusters/development/
 - `firewall.type` enum: `palo-alto`, `checkpoint`, `fortinet`, `f5-waf`
 - PAN-OS: Requires either `panorama` or `standalone` (mutually exclusive)
 - PAN-OS: Global `firewall.log_setting` (references a pre-existing log forwarding profile on the firewall)
-- CheckPoint: Requires `checkpoint` config with `layer_name`
+- CheckPoint: Supports `firewall.checkpoint` config with `domain`, `layer_name`, `auto_publish`, `install_on`, and tracking settings
 - F5: Requires `f5` config with `partition`
 - Position: `where`, `pivot`, `directly` fields
 
@@ -609,7 +651,7 @@ firewall:
     irule_name: gitops_ip_filter
 
 position:
-  where: <first|last|after|before|top|bottom|above|below>
+  where: <first|last|after|before>
   pivot: <reference-rule-name>
   directly: <true|false>
 

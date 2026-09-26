@@ -1,0 +1,39 @@
+addresses:
+  - name: 'core-host'
+    ip_netmask: '172.25.1.5/32'
+  - name: 'core-other'
+    ip_netmask: '172.25.1.6/32'
+  - name: 'internet-dns'
+    ip_netmask: '8.8.8.8/32'
+  - name: 'mgmt-host'
+    ip_netmask: '172.25.10.5/32'
+
+services:
+  - name: 'tcp-443'
+    type: 'tcp'
+    destination_port: '443'
+    source_port: '1024-65535'
+  - name: 'tcp-22'
+    type: 'tcp'
+    destination_port: '22'
+    source_port: '1024-65535'
+
+rules:
+  - name: 'allow-core-to-dns-https'
+    source_zones: ['trust']
+    destination_zones: ['untrust-out']
+    source_addresses: ['core-host']
+    destination_addresses: ['internet-dns']
+    applications: ['any']
+    services: ['tcp-443']
+    action: 'allow'
+    log_end: true
+  - name: 'allow-core-to-mgmt-ssh'
+    source_zones: ['trust']
+    destination_zones: ['mgmt-uplink']
+    source_addresses: ['core-host']
+    destination_addresses: ['mgmt-host']
+    applications: ['any']
+    services: ['tcp-22']
+    action: 'allow'
+    log_end: true

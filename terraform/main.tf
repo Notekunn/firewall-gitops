@@ -111,6 +111,21 @@ locals {
     pivot    = try(local.cluster_config.position.pivot, null)
     directly = try(local.cluster_config.position.directly, false)
   }
+
+  checkpoint_position_config = {
+    where = lookup(
+      {
+        first  = "top"
+        last   = "bottom"
+        after  = "below"
+        before = "above"
+      },
+      local.position_config.where,
+      local.position_config.where
+    )
+    pivot    = local.position_config.pivot
+    directly = local.position_config.directly
+  }
 }
 
 # Configure the PAN-OS provider
@@ -158,15 +173,15 @@ module "checkpoint_firewall" {
   firewall_rules     = local.firewall_rules
   firewall_addresses = local.firewall_addresses
   firewall_services  = local.firewall_services
-  position           = local.position_config
+  position           = local.checkpoint_position_config
   location           = local.checkpoint_location_config
   ip_lists           = local.f5_ip_lists # Reuse same parsed data
   global = {
-    layer_name   = try(local.cluster_config.checkpoint.layer_name, "Network")
-    auto_publish = try(local.cluster_config.checkpoint.auto_publish, true)
-    install_on   = try(local.cluster_config.checkpoint.install_on, ["Policy Targets"])
-    track_type   = try(local.cluster_config.checkpoint.track_type, "Log")
-    track_settings = try(local.cluster_config.checkpoint.track_settings, {
+    layer_name   = try(local.firewall_config.checkpoint.layer_name, "Network")
+    auto_publish = try(local.firewall_config.checkpoint.auto_publish, true)
+    install_on   = try(local.firewall_config.checkpoint.install_on, ["Policy Targets"])
+    track_type   = try(local.firewall_config.checkpoint.track_type, "Log")
+    track_settings = try(local.firewall_config.checkpoint.track_settings, {
       accounting              = false
       alert                   = "none"
       enable_firewall_session = false

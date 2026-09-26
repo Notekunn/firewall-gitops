@@ -16,7 +16,7 @@ This project provides a GitOps approach to managing firewall configurations usin
 
 - ✅ **Palo Alto Networks (PAN-OS)** - Full support for Panorama and standalone NGFW
 - ✅ **Check Point** - Full support for Management Server with policy layers and automatic publishing
-- 🚧 **Fortinet** (planned for future release)
+- 🚧 **Fortinet** - Terraform module WIP; `open_rule` dry-run supports L3 matching
 
 ## 📁 Project Structure
 
@@ -119,6 +119,27 @@ python scripts/validate_yaml.py
 3. **Commit and push** to GitLab
 4. **Create a merge request** - pipeline will validate automatically
 5. **Merge to main** - changes deploy automatically (with approval for production)
+
+Helper script:
+
+```bash
+scripts/create-merge-request.sh -b fix/open-rule -m "fix: open firewall rule" --open-rule examples/flows.json
+scripts/create-merge-request.sh -b fix/my-rule -m "fix: update firewall rule" -- clusters/my-cluster/objects.yaml
+scripts/create-merge-request.sh -b fix/my-rule -m "fix: update firewall rule" --all
+```
+
+### Ticket-Driven Rule Opener (Dry Run)
+
+`open_rule` reads SOAR-style flow tickets and emits decision-only per-firewall verdicts. It does not write files, call firewall APIs, run Terraform, or commit.
+
+```bash
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json --format json
+```
+
+Input is a JSON list of `{src,dst,proto,port,ticket}`. The tool resolves `topology.yaml`, computes the directed firewall path, then reports one verdict per traversed firewall: `ALREADY_OPEN`, `EXTEND`, `CREATE`, `SHADOWED`, `SHADOW_UNKNOWN`, `MANUAL_F5`, or `ERROR`.
+
+Current model fixtures are `clusters/fw-core` (PAN-OS), `clusters/fw-out` and `clusters/fw-mgmt` (FortiGate), and `clusters/fw-in` (F5 WAF manual). Every actionable output includes caveats to verify path/routing/NAT and preceding deny placement before applying YAML manually.
 
 ## 📖 Documentation
 
@@ -474,5 +495,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Issues**: Create an issue in GitLab for bugs or feature requests
 - **Documentation**: Check the `docs/` directory for detailed guides
 - **Examples**: Reference the `clusters/` directory for working configurations
-
-

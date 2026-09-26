@@ -9,7 +9,7 @@ Firewall GitOps: A YAML-to-Terraform automation system for managing firewall con
 **Supported Firewalls:**
 - Palo Alto Networks (PAN-OS) - Panorama and standalone NGFW
 - Check Point - Management Server with policy layers
-- Fortinet - Planned for future release
+- Fortinet - Terraform module WIP; `open_rule` dry-run supports L3 matching
 
 **SOAR Integration:**
 - Webhook service for automated threat response (Phase 01 complete)
@@ -105,6 +105,15 @@ export PANOS_PASSWORD="password"  # OR use PANOS_API_KEY
 # Commit changes to PAN-OS (uses partial commits per-admin)
 ./scripts/commit.sh
 ```
+
+### Ticket-Driven Rule Opener
+```bash
+# Decision-only dry run; no writes, no network, no Terraform apply
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json
+PYTHONPATH=. python3 -m scripts.open_rule examples/flows.json --format json
+```
+
+`scripts/open_rule/` resolves flow tickets against `topology.yaml`, computes the directed multi-firewall path, and emits one verdict per hop. PAN-OS and FortiGate use the L3 matcher; F5 WAF returns `MANUAL_F5`. Generated YAML is advisory and must be checked for assumed path/routing/NAT and deny placement caveats.
 
 ## File Organization
 
@@ -216,7 +225,7 @@ Environment variables: `PANOS_HOSTNAME`, `PANOS_USERNAME`, `PANOS_PASSWORD` (or 
 1. Separate host and network resources (module automatically classifies based on CIDR)
 2. Requires explicit publish after changes (controlled by `auto_publish` setting)
 3. Uses "layers" for policy organization
-4. Rule positioning uses "top", "bottom", "above", "below" (vs PAN-OS "first", "last", "after", "before")
+4. Rule positioning uses common YAML values (`first`, `last`, `after`, `before`) and maps them to CheckPoint provider values internally.
 
 **Provider Configuration:**
 Environment variables: `CHECKPOINT_SERVER`, `CHECKPOINT_USERNAME`, `CHECKPOINT_PASSWORD`, `CHECKPOINT_CONTEXT`
@@ -229,8 +238,8 @@ The CheckPoint module includes automatic change publishing when `auto_publish: t
 ### Positioning Configuration
 
 Rules are positioned relative to existing firewall rules (`terraform/main.tf:83-87`):
-- PAN-OS: `where` values - "first", "last", "after", "before"
-- CheckPoint: `where` values - "top", "bottom", "above", "below"
+- PAN-OS/FortiGate/F5 YAML: `where` values - "first", "last", "after", "before"
+- CheckPoint module maps those to provider values: first→top, last→bottom, after→below, before→above
 - `pivot`: Reference rule name (required for positional placement)
 - `directly`: Boolean for exact vs. generic placement
 
@@ -305,6 +314,24 @@ scripts/webhook-soar/
 │       └── config_test.go       # Unit tests
 ├── go.mod                       # Go module: firewall-gitops/webhook-soar
 └── README.md                    # Service documentation
+```
+
+### Ticket Rule Opener Structure
+
+```
+scripts/open_rule/
+├── netutils.py       # IPv4/port parsing
+├── topology.py       # topology.yaml loader and segment resolver
+├── path.py           # directed path finder
+├── loader.py         # cluster YAML loader
+├── objects.py        # object reuse/staging
+├── matcher.py        # per-firewall verdict logic
+├── orchestrator.py   # per-ticket multi-hop flow processing
+├── render.py         # text/json output
+├── cli.py            # CLI
+├── matcher_*.py      # matcher internals
+├── object_*.py       # object internals
+└── orchestrator_*.py # orchestration internals
 ```
 
 **Configuration:**
