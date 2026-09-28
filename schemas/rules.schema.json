@@ -449,8 +449,8 @@
 				},
 				"expires_at": {
 					"type": ["string", "null"],
-					"description": "Local expiry timestamp interpreted using global.timezone",
-					"pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?$"
+					"description": "Local expiry YYYY-MM-DDTHH:MM:SS interpreted using global.timezone",
+					"pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$"
 				},
 				"change": {
 					"type": ["object", "null"],

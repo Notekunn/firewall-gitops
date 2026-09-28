@@ -7,6 +7,7 @@ import jsonschema
 import pytest
 
 from scripts import validate_yaml
+from scripts.migration_inventory import read_manifest
 
 
 def write_yaml(path, data):
@@ -52,6 +53,37 @@ def test_plan_gate_accepts_non_destructive_change(tmp_path):
     source = Path(__file__).parents[1] / "scripts" / "check-plan-json.py"
     result = subprocess.run(["python3", str(source), str(plan)], capture_output=True, text=True)
     assert result.returncode == 0
+
+
+def test_plan_gate_rejects_incomplete_plan(tmp_path):
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"complete": False, "resource_changes": []}), encoding="utf-8")
+    source = Path(__file__).parents[1] / "scripts" / "check-plan-json.py"
+    result = subprocess.run(["python3", str(source), str(plan)], capture_output=True, text=True)
+    assert result.returncode == 1
+    assert "incomplete" in result.stdout
+
+
+def test_manifest_must_match_yaml_ownership_exactly(tmp_path):
+    manifest = tmp_path / "manifest.tsv"
+    expected = {
+        'module.example.resource.items["one"]': {"name": "one"},
+        'module.example.resource.items["two"]': {"name": "two"},
+    }
+    manifest.write_text('module.example.resource.items["one"]\tid-1\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must match all YAML-owned"):
+        read_manifest(manifest, expected)
+
+    manifest.write_text(
+        'module.example.resource.items["one"]\tid-1\n'
+        'module.example.resource.items["two"]\tid-2\n',
+        encoding="utf-8",
+    )
+    assert read_manifest(manifest, expected) == [
+        ('module.example.resource.items["one"]', "id-1"),
+        ('module.example.resource.items["two"]', "id-2"),
+    ]
 
 
 def test_change_metadata_must_be_complete():

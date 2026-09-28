@@ -10,10 +10,11 @@ import sys
 import yaml
 import glob
 import json
+import argparse
 from pathlib import Path
 import jsonschema
 from jsonschema import validate, ValidationError
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 def load_schema(schema_file):
@@ -133,9 +134,10 @@ def validate_merged_cluster(cluster_config_path):
 
     timezone_name = cluster.get("global", {}).get("timezone", "Asia/Bangkok")
     try:
-        ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError:
+        zone = ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError):
         errors.append(f"Invalid global.timezone in {cluster_config_path}: {timezone_name}")
+        return errors
 
     merged = {key: [] for key in ("addresses", "services", "rules", "schedules")}
     for _, document in load_cluster_objects(cluster_dir):
@@ -154,6 +156,26 @@ def validate_merged_cluster(cluster_config_path):
     schedule_names = {item.get("name") for item in merged["schedules"]}
     schedules_by_name = {item.get("name"): item for item in merged["schedules"]}
     vendor = cluster.get("firewall", {}).get("type")
+    for schedule in merged["schedules"]:
+        kind = schedule.get("schedule_type", {})
+        recurring = kind.get("recurring", {})
+        ranges = recurring.get("daily", []) + [
+            value for values in recurring.get("weekly", {}).values() for value in values
+        ]
+        for value in ranges:
+            try:
+                start, end = [datetime.strptime(part, "%H:%M") for part in value.split("-")]
+                if start >= end:
+                    raise ValueError("range must end after it starts")
+            except ValueError:
+                errors.append(f"Invalid recurring range for schedule {schedule['name']}: {value}")
+        for value in kind.get("non_recurring", []):
+            try:
+                start, end = [parse_local_time(part, "%Y/%m/%d@%H:%M", zone) for part in value.split("-")]
+                if start >= end:
+                    raise ValueError("range must end after it starts")
+            except ValueError:
+                errors.append(f"Invalid non-recurring range for schedule {schedule['name']}: {value}")
     if vendor == "fortinet":
         for schedule in merged["schedules"]:
             schedule_type = schedule.get("schedule_type", {})
@@ -166,23 +188,49 @@ def validate_merged_cluster(cluster_config_path):
                 errors.append(f"FortiGate weekly schedule {schedule.get('name')} in {cluster_dir} must use one shared time range")
     for rule in merged["rules"]:
         schedule = rule.get("schedule")
-        if schedule and schedule not in schedule_names and schedule != "always":
+        if schedule and schedule not in schedule_names and not (vendor == "fortinet" and schedule == "always"):
             errors.append(f"Rule {rule.get('name')} in {cluster_dir} references missing schedule: {schedule}")
         expires_at = rule.get("expires_at")
         if expires_at:
             try:
-                datetime.fromisoformat(expires_at)
+                expiry = parse_local_time(expires_at, "%Y-%m-%dT%H:%M:%S", zone)
             except ValueError:
                 errors.append(f"Rule {rule.get('name')} in {cluster_dir} has invalid expires_at: {expires_at}")
             if vendor == "palo-alto":
                 schedule_data = schedules_by_name.get(schedule, {}).get("schedule_type", {})
                 if not schedule or not schedule_data.get("non_recurring"):
                     errors.append(f"PAN-OS rule {rule.get('name')} in {cluster_dir} requires a non-recurring schedule when expires_at is set")
+                else:
+                    try:
+                        ends = [parse_local_time(value.split("-")[1], "%Y/%m/%d@%H:%M", zone) for value in schedule_data["non_recurring"]]
+                        if max(ends) != parse_local_time(expires_at, "%Y-%m-%dT%H:%M:%S", zone):
+                            errors.append(f"PAN-OS rule {rule.get('name')} schedule must end exactly at expires_at")
+                    except ValueError:
+                        pass  # Invalid timestamps already have a diagnostic.
+            elif vendor != "fortinet":
+                errors.append(f"expires_at is unsupported for vendor {vendor}")
 
     return errors
 
+
+def parse_local_time(value, format_string, zone):
+    """Reject nonexistent/ambiguous device wall times instead of guessing DST."""
+    local = datetime.strptime(value, format_string)
+    if local.strftime(format_string) != value:
+        raise ValueError("Timestamp must use the canonical format")
+    first = local.replace(tzinfo=zone, fold=0)
+    second = local.replace(tzinfo=zone, fold=1)
+    if first.utcoffset() != second.utcoffset():
+        raise ValueError("Ambiguous or nonexistent local time")
+    if first.astimezone(timezone.utc).astimezone(zone).replace(tzinfo=None) != local:
+        raise ValueError("Nonexistent local time")
+    return first
+
 def main():
     """Main validation function"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cluster", help="Validate only this cluster")
+    args = parser.parse_args()
     print("Starting YAML configuration validation...")
     
     # Change to project root directory
@@ -200,6 +248,13 @@ def main():
     
     # Find all YAML files
     cluster_configs, firewall_objects = find_yaml_files()
+    if args.cluster:
+        expected = str(Path("clusters") / args.cluster / "cluster.yaml")
+        cluster_configs = [path for path in cluster_configs if path == expected]
+        firewall_objects = [path for path in firewall_objects if Path(path).is_relative_to(Path("clusters") / args.cluster)]
+        if not cluster_configs:
+            print("Cluster configuration not found")
+            return 1
 
     if not cluster_configs and not firewall_objects:
         print("No YAML configuration files found.")
@@ -246,8 +301,9 @@ def main():
     # Validate cluster references
     ref_errors = validate_cluster_references(cluster_configs, firewall_objects)
     errors.extend(ref_errors)
-    for config_file in cluster_configs:
-        errors.extend(validate_merged_cluster(config_file))
+    if not errors:
+        for config_file in cluster_configs:
+            errors.extend(validate_merged_cluster(config_file))
     
     # Print results
     if errors:

@@ -36,8 +36,8 @@ resource "fortios_firewallschedule_recurring" "schedules" {
 resource "fortios_firewallschedule_onetime" "schedules" {
   for_each = local.onetime_schedules
   name     = each.key
-  start    = replace(split("-", each.value.schedule_type.non_recurring[0])[0], "@", " ")
-  end      = replace(split("-", each.value.schedule_type.non_recurring[0])[1], "@", " ")
+  start    = join(" ", reverse(split("@", split("-", each.value.schedule_type.non_recurring[0])[0])))
+  end      = join(" ", reverse(split("@", split("-", each.value.schedule_type.non_recurring[0])[1])))
 }
 
 resource "fortios_firewall_address" "addresses" {

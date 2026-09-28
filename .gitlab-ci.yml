@@ -20,7 +20,7 @@ stages: [validate, plan, apply]
     key: '${CI_COMMIT_REF_SLUG}-${CLUSTER_NAME}'
     paths: ['${TF_ROOT}/.terraform']
   before_script:
-    - ./scripts/deploy.sh -c "$CLUSTER_NAME" -a init --state-generation "$STATE_GENERATION"
+    - apk add --no-cache python3 py3-yaml py3-jsonschema tzdata
 
 validate-yaml:
   stage: validate
@@ -38,7 +38,10 @@ tofu-validate:
   extends: .tofu-base
   stage: validate
   variables: {CLUSTER_NAME: 'fw-core'}
-  script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a validate']
+  script:
+    - cd "$TF_ROOT"
+    - tofu init -backend=false -lockfile=readonly -input=false
+    - tofu validate
 
 security-scan:
   stage: validate
@@ -53,12 +56,12 @@ security-scan:
 .plan:
   extends: .tofu-base
   stage: plan
-  resource_group: 'firewall-${CLUSTER_NAME}-${STATE_GENERATION}'
+  resource_group: 'firewall-${CLUSTER_NAME}'
   script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a plan --state-generation "$STATE_GENERATION"']
   artifacts:
     name: 'tofu-plan-${CLUSTER_NAME}-${STATE_GENERATION}'
     paths: ['terraform/plan-*.tfplan', 'terraform/plan-*.json']
-    reports: {terraform: 'terraform/plan-*.json'}
+    access: maintainer
     expire_in: 1 week
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -66,7 +69,7 @@ security-scan:
 .apply:
   extends: .tofu-base
   stage: apply
-  resource_group: 'firewall-${CLUSTER_NAME}-${STATE_GENERATION}'
+  resource_group: 'firewall-${CLUSTER_NAME}'
   when: manual
   allow_failure: false
   script: ['./scripts/deploy.sh -c "$CLUSTER_NAME" -a apply --state-generation "$STATE_GENERATION"']

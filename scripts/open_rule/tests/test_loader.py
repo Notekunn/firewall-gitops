@@ -74,14 +74,14 @@ def test_unsupported_and_missing_cluster_errors(tmp_path):
         load_cluster(tmp_path, "missing")
 
 
-def test_merge_unit_matches_example_counts():
+def test_merge_unit_matches_unique_example_objects():
     root = Path(__file__).resolve().parents[3]
     merged = load_cluster_data_for_merge_test(root / "clusters" / "example")
 
-    assert len(merged["addresses"]) == 5
+    assert len(merged["addresses"]) == 4
     assert len(merged["services"]) == 4
-    assert len(merged["rules"]) == 4
-    assert len(merged["rule_sources"]) == 4
+    assert len(merged["rules"]) == 3
+    assert len(merged["rule_sources"]) == 3
 
 
 def _cluster(tmp_path, name, vendor):
