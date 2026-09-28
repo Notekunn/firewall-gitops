@@ -21,6 +21,7 @@
 - **[GitOps Workflow](../README.md#gitops-workflow)** - Development and deployment workflow
 - **[Multi-File YAML Support](../README.md#multi-file-yaml-organization)** - Split configurations across multiple files
 - **[CI/CD Pipeline](../.gitlab-ci.yml)** - GitLab pipeline configuration and stages
+- **[Manual V2 State Migration](v2-state-migration.md)** - Backup, import, plan review, apply, verification, and rollback runbook
 
 ## Vendor-Specific Documentation
 
