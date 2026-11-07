@@ -2,6 +2,12 @@
 
 This project provides a GitOps approach to managing firewall configurations using Terraform modules. Network developers can define firewall rules using simple YAML configuration files, which are then automatically converted to Terraform and applied via GitLab CI/CD.
 
+## 🗺️ How It Works
+
+<p align="center">
+  <img src="docs/diagrams/how-it-works.svg" alt="Firewall GitOps: a ticket or SOAR alert flows through auto open rule, review, validate and deploy, then Terraform applies the rules to every firewall on the path" width="900">
+</p>
+
 ## 🚀 Features
 
 - **YAML-based Configuration**: Simple, human-readable firewall rule definitions
