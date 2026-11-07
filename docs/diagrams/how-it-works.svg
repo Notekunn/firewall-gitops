@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1160" width="2000" height="1160" role="img" aria-label="Firewall GitOps: how it works">
+  <title>Firewall GitOps: how it works</title>
+  <defs>
+    <radialGradient id="core" cx="0.3" cy="0.15" r="0.9">
+      <stop offset="0" stop-color="#3b261e"/>
+      <stop offset="1" stop-color="#110c0a"/>
+    </radialGradient>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f68330"/>
+    </marker>
+    <g id="wall" fill="none" stroke="#f68330" stroke-width="6" stroke-linejoin="round">
+      <rect x="-48" y="-36" width="96" height="72" rx="6"/>
+      <path d="M-48,-12 H48 M-48,12 H48 M-16,-36 V-12 M16,-36 V-12 M0,-12 V12 M-32,-12 V12 M32,-12 V12 M-16,12 V36 M16,12 V36"/>
+    </g>
+    <g id="lock" fill="none" stroke="#f68330" stroke-width="5" stroke-linejoin="round">
+      <rect x="-20" y="-6" width="40" height="34" rx="8"/>
+      <path d="M-12,-6 V-16 A12,12 0 0 1 12,-16 V-6"/>
+    </g>
+    <g id="shield" fill="none" stroke="#2ecc71" stroke-width="3.5" stroke-linejoin="round">
+      <path d="M0,-30 L24,-20 V2 C24,18 12,27 0,32 C-12,27 -24,18 -24,2 V-20 Z"/>
+      <path d="M-11,1 L-3,10 L12,-8"/>
+    </g>
+  </defs>
+  <style>
+    text { font-family: Inter, Roboto, "Segoe UI", Helvetica, Arial, sans-serif; fill: #f2f2f2; }
+    .lbl { font-size: 30px; font-weight: 300; }
+    .tile { font-size: 30px; font-weight: 400; }
+    .muted { font-size: 22px; font-weight: 300; fill: #a8a8a8; }
+    .name { font-size: 34px; font-weight: 600; }
+    .cap { font-size: 28px; font-weight: 400; }
+  </style>
+
+  <rect width="2000" height="1160" fill="#050505"/>
+
+  <!-- logo -->
+  <g transform="translate(722,200) scale(0.62)">
+    <use href="#wall"/>
+  </g>
+  <text x="780" y="224" font-size="66" font-weight="500">firewall-gitops</text>
+  <text class="lbl" x="1590" y="180" text-anchor="middle">runs in your</text>
+  <text class="lbl" x="1590" y="218" text-anchor="middle">GitLab CI/CD</text>
+
+  <!-- core -->
+  <rect x="560" y="255" width="880" height="285" rx="18" fill="url(#core)"/>
+  <g>
+    <rect x="589" y="340" width="230" height="105" rx="10" fill="#0a0a0a"/>
+    <text class="tile" x="704" y="403" text-anchor="middle">Auto open rule</text>
+    <rect x="853" y="340" width="160" height="105" rx="10" fill="#0a0a0a"/>
+    <text class="tile" x="933" y="403" text-anchor="middle">Review</text>
+    <rect x="1047" y="340" width="170" height="105" rx="10" fill="#0a0a0a"/>
+    <text class="tile" x="1132" y="403" text-anchor="middle">Validate</text>
+    <rect x="1251" y="340" width="160" height="105" rx="10" fill="#0a0a0a"/>
+    <text class="tile" x="1331" y="403" text-anchor="middle">Deploy</text>
+    <g fill="none" stroke="#f68330" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M830,384 L840,392 L830,400"/>
+      <path d="M1024,384 L1034,392 L1024,400"/>
+      <path d="M1228,384 L1238,392 L1228,400"/>
+    </g>
+  </g>
+  <text class="muted" x="1000" y="500" text-anchor="middle">Git is the single source of truth · every change reviewed and auditable</text>
+
+  <!-- request -->
+  <rect x="60" y="300" width="290" height="165" rx="12" fill="none" stroke="#f68330" stroke-width="2.5"/>
+  <text class="lbl" x="205" y="372" text-anchor="middle">Ticket or</text>
+  <text class="lbl" x="205" y="410" text-anchor="middle">SOAR alert</text>
+  <line x1="365" y1="383" x2="548" y2="383" stroke="#f68330" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#ah)"/>
+  <text class="muted" x="456" y="425" text-anchor="middle">open port</text>
+  <text class="muted" x="456" y="453" text-anchor="middle">block IP</text>
+
+  <!-- deploy lines -->
+  <g fill="none" stroke="#f68330" stroke-width="2.5">
+    <path d="M560,508 H457 Q445,508 445,520 V845"/>
+    <path d="M1000,540 V845"/>
+    <path d="M1440,508 H1543 Q1555,508 1555,520 V845"/>
+  </g>
+  <text class="lbl" x="490" y="628">terraform</text>
+  <text class="lbl" x="490" y="666">apply</text>
+  <text class="lbl" x="1510" y="628" text-anchor="end">terraform</text>
+  <text class="lbl" x="1510" y="666" text-anchor="end">apply</text>
+
+  <!-- traffic path -->
+  <g stroke="#1fae6a" stroke-width="2.5">
+    <line x1="510" y1="905" x2="690" y2="905"/>
+    <line x1="754" y1="905" x2="935" y2="905"/>
+    <line x1="1065" y1="905" x2="1246" y2="905"/>
+    <line x1="1310" y1="905" x2="1490" y2="905"/>
+  </g>
+  <use href="#lock" x="722" y="900"/>
+  <use href="#lock" x="1278" y="900"/>
+
+  <!-- firewalls -->
+  <use href="#wall" x="445" y="905"/>
+  <use href="#wall" x="1000" y="905"/>
+  <use href="#wall" x="1555" y="905"/>
+
+  <text class="name" x="475" y="1012" text-anchor="end">Palo Alto</text>
+  <use href="#shield" x="515" y="1002"/>
+  <text class="muted" x="549" y="1012">as code</text>
+
+  <text class="name" x="1030" y="1012" text-anchor="end">Check Point</text>
+  <use href="#shield" x="1070" y="1002"/>
+  <text class="muted" x="1104" y="1012">as code</text>
+
+  <text class="name" x="1585" y="1012" text-anchor="end">FortiGate</text>
+  <use href="#shield" x="1625" y="1002"/>
+  <text class="muted" x="1659" y="1012">coming soon</text>
+
+  <text class="cap" x="1000" y="1100" text-anchor="middle">one ticket → the full multi-firewall path, opened hop by hop</text>
+</svg>
